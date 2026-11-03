@@ -48,8 +48,8 @@ class Builder {
   }
 }
 
-const DARK = 0.3;
-const LEVEL = [DARK, 0.62, 1];
+const DARK = 0.4;
+const LEVEL = [DARK, 0.7, 1];
 const SHADE = [0.72, 0.72, 1.0, 0.5, 0.86, 0.86]; // +x -x +y -y +z -z
 
 /** Coordonnées de texture (en unités de bloc) pour une face, depuis la position monde. */

@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ---------- Étape 1 : construction du jeu (Vite + TypeScript) ----------
 FROM node:22-alpine AS build
 WORKDIR /app
