@@ -146,7 +146,7 @@ export class Sky {
     worldUniforms.fogColor.value.copy(this.fogColor);
     worldUniforms.fogNear.value = fog.near;
     worldUniforms.fogFar.value = fog.far;
-    worldUniforms.dayLight.value = lerp(0.2, 1, d);
+    worldUniforms.dayLight.value = lerp(0.27, 1, d);
     const warm = Math.max(0, 1 - Math.abs(e) / 0.3) * 0.5;
     worldUniforms.tint.value.setRGB(lerp(0.78, 1, d) + warm * 0.15, lerp(0.84, 1, d) - warm * 0.05, lerp(1, 1, d) - warm * 0.2);
     applyEntityTint(worldUniforms.dayLight.value, worldUniforms.tint.value);

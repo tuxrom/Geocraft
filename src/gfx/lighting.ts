@@ -11,6 +11,7 @@ export function litMaterial<T extends THREE.MeshBasicMaterial | THREE.SpriteMate
 }
 
 export function applyEntityTint(day: number, tint: THREE.Color) {
-  entityTint.setRGB(day * tint.r, day * tint.g, day * tint.b);
+  const d = Math.max(day, 0.5);
+  entityTint.setRGB(d * tint.r, d * tint.g, d * tint.b);
   for (const r of registry) r.mat.color.copy(r.base).multiply(entityTint);
 }

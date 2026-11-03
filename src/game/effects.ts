@@ -21,6 +21,9 @@ export class Effects {
   private readonly MAX = 700;
   drops: Drop[] = [];
   private dummy = new THREE.Object3D();
+  private timed: { obj: THREE.Object3D; life: number; max: number; fn?: (k: number, o: THREE.Object3D) => void; fade: boolean }[] = [];
+  private floaters: { sp: THREE.Sprite; life: number; vy: number }[] = [];
+  private floatTex = new Map<string, THREE.CanvasTexture>();
   private col = new THREE.Color();
 
   constructor(private scene: THREE.Scene, private world: World, private audio: AudioSys) {
@@ -64,6 +67,7 @@ export class Effects {
   }
 
   update(dt: number, player: Player, inv: Inventory, creative: boolean) {
+    this.updateTimed(dt);
     // particules
     let n = 0;
     for (let i = this.parts.length - 1; i >= 0; i--) {
@@ -116,6 +120,90 @@ export class Effects {
       d.mesh.rotation.y = d.age * 1.6 + d.spin;
     }
     void creative;
+  }
+
+  /** Objet 3D temporaire : disparaît au bout de `life` secondes (fondu si matériau transparent). */
+  addTimed(obj: THREE.Object3D, life: number, fn?: (k: number, o: THREE.Object3D) => void, fade = true) {
+    this.scene.add(obj);
+    this.timed.push({ obj, life, max: life, fn, fade });
+  }
+
+  /** Faisceau lumineux entre deux points. */
+  beam(a: THREE.Vector3, b: THREE.Vector3, color: number, width = 0.12, life = 0.18) {
+    const len = a.distanceTo(b);
+    if (len < 0.01) return;
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(width, width, len),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false }),
+    );
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.lookAt(b);
+    this.addTimed(m, life, (k, o) => { o.scale.x = o.scale.y = 0.3 + k * 0.7; });
+  }
+
+  /** Anneau plat qui s'étend (compas, ondes). */
+  ring(x: number, y: number, z: number, radius: number, color: number, life = 0.45) {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(0.9, 1, 48),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, y, z);
+    this.addTimed(m, life, (k, o) => { const r = radius * (1 - k * k); o.scale.set(r, r, 1); });
+  }
+
+  /** Nombre flottant (dégâts, soins). */
+  text(str: string, x: number, y: number, z: number, color = '#ffffff', big = false) {
+    const key = str + color;
+    let tex = this.floatTex.get(key);
+    if (!tex) {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 32;
+      const g = c.getContext('2d')!;
+      g.font = '14px "Press Start 2P", monospace';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineWidth = 4; g.strokeStyle = '#000'; g.strokeText(str, 64, 17);
+      g.fillStyle = color; g.fillText(str, 64, 17);
+      tex = new THREE.CanvasTexture(c);
+      tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+      if (this.floatTex.size > 200) this.floatTex.clear();
+      this.floatTex.set(key, tex);
+    }
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    const sc = big ? 1.6 : 1.1;
+    sp.scale.set(sc * 2, sc * 0.5, 1);
+    sp.position.set(x + (Math.random() - 0.5) * 0.4, y, z + (Math.random() - 0.5) * 0.4);
+    sp.renderOrder = 50;
+    this.scene.add(sp);
+    this.floaters.push({ sp, life: 0.9, vy: 1.6 });
+  }
+
+  private updateTimed(dt: number) {
+    for (let i = this.timed.length - 1; i >= 0; i--) {
+      const t = this.timed[i];
+      t.life -= dt;
+      const k = 1 - Math.max(0, t.life) / t.max;
+      t.fn?.(k, t.obj);
+      if (t.fade) {
+        const m = (t.obj as THREE.Mesh).material as THREE.Material & { opacity?: number } | undefined;
+        if (m && 'opacity' in m && m.transparent) m.opacity = Math.max(0, 1 - k);
+      }
+      if (t.life <= 0) {
+        this.scene.remove(t.obj);
+        const mesh = t.obj as THREE.Mesh;
+        mesh.geometry?.dispose();
+        (mesh.material as THREE.Material | undefined)?.dispose?.();
+        this.timed.splice(i, 1);
+      }
+    }
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i];
+      f.life -= dt;
+      f.sp.position.y += f.vy * dt;
+      f.vy *= 0.96;
+      f.sp.material.opacity = Math.min(1, f.life * 2.5);
+      if (f.life <= 0) { this.scene.remove(f.sp); f.sp.material.dispose(); this.floaters.splice(i, 1); }
+    }
   }
 
   private remove(i: number) {

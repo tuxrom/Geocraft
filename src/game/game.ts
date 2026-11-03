@@ -16,6 +16,9 @@ import { Hud, weaponHtml } from '../ui/hud';
 import { Screens, type Tab } from '../ui/screens';
 import { BLOCKS } from '../data/blocks';
 import { weaponId, ITEMS } from '../data/items';
+import { Mobs, Spawner, type MobCtx } from './mobs';
+import { Projectiles } from './projectiles';
+import { Combat } from './combat';
 
 export type Mode = 'init' | 'title' | 'loading' | 'play' | 'pause' | 'dead';
 
@@ -35,6 +38,11 @@ export class Game {
   world!: World;
   fx!: Effects;
   interaction!: Interaction;
+  mobs!: Mobs;
+  proj!: Projectiles;
+  combat!: Combat;
+  spawner = new Spawner();
+  mobCtx!: MobCtx;
   hud!: Hud;
   screens!: Screens;
   mode: Mode = 'init';
@@ -126,6 +134,18 @@ export class Game {
     this.world.renderDistance = this.settings.renderDistance;
     this.fx = new Effects(this.scene, this.world, this.audio);
     this.interaction = new Interaction(this.scene, this.world, this.player, this.input, this.inv, this.fx, this.audio, this.ui, this.hand);
+    if (this.mobs) { this.mobs.clear(); this.proj.clear(); }
+    this.mobs = new Mobs(this.scene);
+    this.proj = new Projectiles(this.scene, this.world, this.fx);
+    const g = this;
+    this.mobCtx = {
+      world: this.world, player: this.player, fx: this.fx, audio: this.audio, mobs: this.mobs,
+      hurtPlayer: (amount, from, slow) => this.hurtPlayer(amount, from, slow),
+      difficulty: () => g.spawner.difficulty(g.player, g.sky.isNight),
+      get night() { return g.sky.isNight; },
+      get time() { return g.elapsed; },
+    };
+    this.combat = new Combat(this.world, this.player, this.input, this.inv, this.interaction, this.hand, this.audio, this.fx, this.mobs, this.proj, this.ui, () => this.mobCtx, (n) => this.heal(n));
     this.onWorldCreated();
   }
 
@@ -316,6 +336,22 @@ export class Game {
     if (this.player.health <= 0) this.die();
   }
 
+  /** Dégâts infligés par un ennemi : bouclier, recul et ralentissement. */
+  hurtPlayer(amount: number, from?: THREE.Vector3, slow = 0) {
+    if (this.player.dead || this.mode !== 'play') return;
+    const a = this.combat.mitigate(amount, from);
+    const before = this.player.health;
+    this.hurt(a, 'ennemi');
+    if (this.player.health < before || this.settings.creative) {
+      const b = this.player.body;
+      if (from) {
+        const dx = b.x - from.x, dz = b.z - from.z, d = Math.hypot(dx, dz) || 1;
+        b.vx += (dx / d) * 5; b.vz += (dz / d) * 5; b.vy = Math.max(b.vy, 4);
+      }
+      if (slow > 0) { this.player.speedMul = 0.55; this.player.slowTimer = slow; }
+    }
+  }
+
   heal(n: number) { this.player.health = Math.min(this.player.maxHealth, this.player.health + n); }
 
   die() {
@@ -331,6 +367,7 @@ export class Game {
     b.onclick = () => {
       this.ui.close();
       this.respawn();
+      this.mobs.clear(); this.proj.clear();
       this.player.dead = false;
       this.mode = 'play';
       this.input.enabled = true;
@@ -423,7 +460,12 @@ export class Game {
         this.regenT += dt;
         if (this.regenT > 3) { this.regenT = 0; p.health = Math.min(p.maxHealth, p.health + 1); }
       }
+      this.combat.update(dt, active, this.settings.creative);
       this.interaction.update(dt, active, this.settings.creative);
+      this.spawner.playTime = this.playTime;
+      this.mobs.update(dt, this.mobCtx);
+      this.proj.update(dt, this.mobCtx, this.mobs);
+      this.spawner.update(dt, this.mobCtx, this.sky);
       for (const fn of this.extras) fn(dt);
       this.fx.update(dt, p, this.inv, this.settings.creative);
       this.autosave(dt);
@@ -453,7 +495,7 @@ export class Game {
       this.ui.info.classList.remove('hidden');
       this.ui.info.innerHTML = `${this.fps.toFixed(0)} i/s<br>XYZ ${p.body.x.toFixed(1)} ${p.body.y.toFixed(1)} ${p.body.z.toFixed(1)}<br>Chunks ${st.chunks} · ${Math.round(st.tris / 1000)}k triangles<br>Heure ${String(Math.floor((this.sky.time * 24 + 6) % 24)).padStart(2, '0')}h`;
     } else this.ui.info.classList.add('hidden');
-    this.hud.setWeaponInfo(weaponHtml(held));
+    this.hud.setWeaponInfo(weaponHtml(held, this.combat.info()));
   }
 
   private autosave(dt: number) {
