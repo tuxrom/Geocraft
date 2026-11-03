@@ -1,0 +1,22 @@
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const logs = [];
+  page.on('console', (m) => logs.push(m.type() + ': ' + m.text()));
+  page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message));
+  await page.goto('http://127.0.0.1:5173/');
+  await page.waitForTimeout(4000);
+  await page.click('text=Jouer');
+  await page.waitForTimeout(2500);
+  let st = await page.evaluate(() => ({ mode: __geo.mode, lock: __geo.input.locked, pos: [__geo.player.body.x, __geo.player.body.y, __geo.player.body.z] }));
+  console.log(JSON.stringify(st));
+  await page.keyboard.down('z'); await page.waitForTimeout(1500); await page.keyboard.up('z');
+  await page.keyboard.down('w'); await page.keyboard.down('Space'); await page.waitForTimeout(800); await page.keyboard.up('Space'); await page.keyboard.up('w');
+  await page.mouse.move(640, 360); await page.mouse.move(700, 330);
+  st = await page.evaluate(() => ({ mode: __geo.mode, pos: [__geo.player.body.x, __geo.player.body.y, __geo.player.body.z], yaw: __geo.player.yaw, fps: __geo.fps }));
+  console.log(JSON.stringify(st));
+  await page.screenshot({ path: 'tests/out/m1-play.png' });
+  console.log(logs.filter(l => !l.includes('vite')).join('\n'));
+  await browser.close();
+})();
