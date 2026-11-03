@@ -1,14 +1,23 @@
 import * as THREE from 'three';
 import { World } from '../world/world';
 import { Player } from './player';
-import { Input } from './input';
+import { Input, keyId, keyLabel } from './input';
 import { Sky } from '../gfx/sky';
-import { UI, toggleFullscreen } from '../ui/ui';
-import { loadSettings, saveSettings, type Settings } from './settings';
-import { loadMeta, loadMods, type SaveMeta } from './save';
+import { UI, toggleFullscreen, h } from '../ui/ui';
+import { loadSettings, saveSettings, type Action, type Settings } from './settings';
+import { loadMeta, loadMods, saveAll, clearSave, type SaveMeta } from './save';
 import { buildAtlas } from '../gfx/textures';
+import { Inventory } from './inventory';
+import { AudioSys, surfaceOf } from './audio';
+import { Effects } from './effects';
+import { Interaction } from './interaction';
+import { Hand } from '../gfx/hand';
+import { Hud, weaponHtml } from '../ui/hud';
+import { Screens, type Tab } from '../ui/screens';
+import { BLOCKS } from '../data/blocks';
+import { weaponId, ITEMS } from '../data/items';
 
-export type Mode = 'init' | 'title' | 'loading' | 'play' | 'pause';
+export type Mode = 'init' | 'title' | 'loading' | 'play' | 'pause' | 'dead';
 
 export class Game {
   canvas: HTMLCanvasElement;
@@ -19,16 +28,29 @@ export class Game {
   input: Input;
   ui: UI;
   sky: Sky;
+  audio: AudioSys;
   player = new Player();
+  inv = new Inventory();
+  hand = new Hand();
   world!: World;
+  fx!: Effects;
+  interaction!: Interaction;
+  hud!: Hud;
+  screens!: Screens;
   mode: Mode = 'init';
+  screenOpen = false;
   meta: SaveMeta | null = null;
   private last = performance.now();
   private fpsAcc = 0;
   private fpsFrames = 0;
   fps = 0;
   elapsed = 0;
+  playTime = 0;
   private orbit = 0;
+  private saveT = 0;
+  private regenT = 0;
+  private sinceHurt = 99;
+  private extras: ((dt: number) => void)[] = [];
 
   constructor() {
     THREE.ColorManagement.enabled = false;
@@ -36,11 +58,13 @@ export class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.autoClear = true;
     this.camera = new THREE.PerspectiveCamera(this.settings.fov, 1, 0.05, 600);
     this.scene.add(this.camera);
     buildAtlas();
     this.sky = new Sky(this.scene, this.camera);
     this.input = new Input(this.settings, this.canvas);
+    this.audio = new AudioSys(this.settings);
     this.ui = new UI(document.getElementById('ui')!, this.settings, {
       onPlay: () => void this.play(),
       onNewWorld: () => void this.newWorld(),
@@ -48,16 +72,40 @@ export class Game {
       onQuitToTitle: () => this.toTitle(),
       onSettingsChanged: () => this.applySettings(),
     });
+    this.hud = new Hud(this.ui.hud, this.inv, () => this.keyLabels());
+    this.screens = new Screens(this.ui, this.inv, {
+      creative: () => this.settings.creative,
+      onClose: () => this.onScreenClosed(),
+      dropItem: (s) => this.dropFromPlayer(s.id, s.n),
+      sfx: (n) => this.audio.sfx(n),
+    });
+    this.screens.onInvChange = () => this.hud.refresh();
     window.addEventListener('resize', () => this.resize());
     this.resize();
     this.input.onLockChange = (locked) => {
-      if (!locked && this.mode === 'play') this.openPause();
+      if (!locked && this.mode === 'play' && !this.screenOpen) this.openPause();
     };
     this.input.onRawKey = (e) => this.onKeyDown(e);
     this.canvas.addEventListener('click', () => {
-      if (this.mode === 'play' && !this.input.locked && !this.ui.screen) this.input.lock();
+      this.audio.init();
+      if (this.mode === 'play' && !this.input.locked && !this.screenOpen) this.input.lock();
     });
     document.addEventListener('fullscreenchange', () => this.resize());
+    window.addEventListener('beforeunload', () => { void this.saveNow(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) void this.saveNow(); });
+    this.player.onFall = (d) => this.hurt(d, 'chute');
+    this.player.onStep = () => {
+      const b = this.player.body;
+      const id = this.world.getBlock(Math.floor(b.x), Math.floor(b.y - 0.1), Math.floor(b.z));
+      this.audio.sfx('step', this.player.sprinting ? 0.9 : 0.6, surfaceOf(BLOCKS[Math.max(0, id)]));
+    };
+    this.player.onJump = () => this.audio.sfx('jump', 0.6);
+  }
+
+  keyLabels(): Record<string, string> {
+    const k = this.settings.keys;
+    const l = (a: Action) => keyLabel(k[a][0]);
+    return { forward: l('forward'), back: l('back'), left: l('left'), right: l('right'), jump: l('jump'), sprint: l('sprint'), crouch: l('crouch'), inventory: l('inventory'), craft: l('craft'), interact: l('interact'), adjust: l('adjust') };
   }
 
   async init() {
@@ -72,11 +120,18 @@ export class Game {
   }
 
   protected async createWorld(seed: number, mods: Record<string, number[]>) {
-    if (this.world) this.world.dispose();
+    if (this.world) { this.world.dispose(); this.fx.clearDrops(); }
     this.world = new World(this.scene, seed);
     this.world.setMods(mods);
     this.world.renderDistance = this.settings.renderDistance;
+    this.fx = new Effects(this.scene, this.world, this.audio);
+    this.interaction = new Interaction(this.scene, this.world, this.player, this.input, this.inv, this.fx, this.audio, this.ui, this.hand);
+    this.onWorldCreated();
   }
+
+  /** Extension pour les jalons suivants. */
+  protected onWorldCreated() { /* surchargé */ }
+  addSystem(fn: (dt: number) => void) { this.extras.push(fn); }
 
   applySettings() {
     this.world.renderDistance = this.settings.renderDistance;
@@ -85,6 +140,7 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.sky.cloudsOn = this.settings.clouds;
     this.player.creative = this.settings.creative;
+    this.audio.apply();
   }
 
   resize() {
@@ -92,27 +148,35 @@ export class Game {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.hand.resize(w / h);
   }
 
   // ---------------------------------------------------------------- états
   async newWorld() {
-    const { clearSave } = await import('./save');
     await clearSave();
     this.meta = null;
+    this.inv.clear();
     await this.createWorld(Math.floor(Math.random() * 2 ** 31) | 0, {});
     this.applySettings();
     await this.play();
   }
 
+  starterKit() {
+    this.inv.clear();
+    this.inv.slots[0] = { id: weaponId('droite', 'bois'), n: 1 };
+    this.inv.slots[1] = { id: weaponId('racine', 'bois'), n: 1 };
+    this.inv.changed();
+  }
+
   async play() {
     this.input.lock();
+    this.audio.init();
     this.mode = 'loading';
     this.ui.setHudVisible(false);
     const ld = this.ui.loading();
     const sp = this.world.terrain.spawn();
     const p = this.meta?.player;
     const px = p?.x ?? sp.x, pz = p?.z ?? sp.z;
-    // attend les chunks proches
     await new Promise<void>((res) => {
       const tick = () => {
         this.world.update(px, pz);
@@ -122,25 +186,48 @@ export class Game {
       };
       tick();
     });
+    if (this.meta) {
+      this.inv.fromJSON(this.meta.inventory as { id: string; n: number }[]);
+      this.inv.selected = this.meta.hotbar ?? 0;
+      this.sky.time = this.meta.time;
+      this.playTime = this.meta.playTime ?? 0;
+    } else {
+      this.starterKit();
+      this.sky.time = 0.08;
+      this.playTime = 0;
+    }
     if (p) {
       this.player.teleport(p.x, p.y, p.z);
       this.player.yaw = p.yaw; this.player.pitch = p.pitch; this.player.health = p.health;
     } else {
-      const y = this.world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)) + 1;
-      this.player.teleport(sp.x, y + 0.01, sp.z);
-      this.player.yaw = Math.PI * 0.25; // face à la cabane
+      this.respawn(true);
     }
+    this.player.dead = false;
     this.afterLoad();
+    this.hud.refresh();
     this.ui.close();
     this.ui.setHudVisible(true);
     this.mode = 'play';
     this.input.enabled = true;
-    // le verrouillage du pointeur est asynchrone : on lui laisse un court délai
     for (let i = 0; i < 20 && !this.input.locked; i++) await new Promise((r) => setTimeout(r, 50));
     if (!this.input.locked && this.mode === 'play') this.openPause();
+    else if (!this.settings.helpSeen) {
+      this.settings.helpSeen = true;
+      saveSettings(this.settings);
+      this.screenOpen = true;
+      this.input.unlock();
+      this.hud.showHelp(() => { this.screenOpen = false; this.input.lock(); });
+    }
   }
 
-  /** Point d'extension pour les jalons suivants. */
+  respawn(first = false) {
+    const sp = this.world.terrain.spawn();
+    const y = this.world.surfaceY(Math.floor(sp.x), Math.floor(sp.z)) + 1;
+    this.player.teleport(sp.x, y + 0.01, sp.z);
+    if (first) this.player.yaw = Math.PI * 0.25;
+    this.player.health = this.player.maxHealth;
+  }
+
   protected afterLoad() { /* surchargé */ }
 
   openPause() {
@@ -149,6 +236,7 @@ export class Game {
     this.input.enabled = false;
     this.input.unlock();
     this.ui.pause();
+    void this.saveNow();
   }
 
   resume() {
@@ -159,24 +247,126 @@ export class Game {
   }
 
   toTitle() {
+    void this.saveNow();
     this.mode = 'title';
     this.input.enabled = false;
     this.input.unlock();
     this.ui.setHudVisible(false);
+    this.meta = { ...(this.collectMeta()) };
     this.ui.title(true);
   }
 
+  // ------------------------------------------------------------ écrans
+  openScreen(tab: Tab) {
+    if (this.mode !== 'play' || this.screenOpen) return;
+    this.screenOpen = true;
+    this.input.unlock();
+    this.screens.show(tab);
+  }
+
+  closeScreen() {
+    if (!this.screenOpen) return;
+    this.screens.close();
+  }
+
+  private onScreenClosed() {
+    this.screenOpen = false;
+    if (this.mode === 'play') this.input.lock();
+  }
+
+  dropFromPlayer(id: string, n: number) {
+    const e = this.player.eyePos();
+    const d = this.player.lookDir();
+    this.fx.spawnDrop(id, n, e.x + d.x * 0.5, e.y - 0.3, e.z + d.z * 0.5, d.x * 4, 2, d.z * 4);
+    this.fx.drops[this.fx.drops.length - 1].delay = 1.5;
+  }
+
   protected onKeyDown(e: KeyboardEvent): boolean | void {
-    if (e.key === 'F11') {
-      e.preventDefault();
-      toggleFullscreen();
-      return true;
+    const id = keyId(e);
+    const k = this.settings.keys;
+    if (id === 'F11') { e.preventDefault(); toggleFullscreen(); return true; }
+    if (e.repeat) return;
+    if (this.mode === 'pause' && id === 'Escape') { this.resume(); return true; }
+    if (this.mode === 'play') {
+      if (this.screenOpen) {
+        if (id === 'Escape' || k.inventory.includes(id) || (this.screens.tab === 'craft' && k.craft.includes(id))) {
+          if (this.hud.helpEl) return;
+          this.closeScreen();
+          e.preventDefault();
+          return true;
+        }
+        return;
+      }
+      if (this.input.locked) {
+        if (k.inventory.includes(id)) { e.preventDefault(); this.openScreen('inv'); return true; }
+        if (k.craft.includes(id)) { e.preventDefault(); this.openScreen('craft'); return true; }
+      }
     }
-    if (e.key === 'Escape' && this.mode === 'pause') {
-      // dans le menu pause, Échap reprend la partie
-      this.resume();
-      return true;
+  }
+
+  // ----------------------------------------------------------- santé
+  hurt(amount: number, _src = '') {
+    if (this.settings.creative || this.player.dead || this.mode === 'dead') return;
+    if (this.player.invuln > 0) return;
+    this.player.health = Math.max(0, this.player.health - amount);
+    this.player.invuln = 0.45;
+    this.sinceHurt = 0;
+    this.ui.flashDamage();
+    this.audio.sfx('hurt');
+    if (this.player.health <= 0) this.die();
+  }
+
+  heal(n: number) { this.player.health = Math.min(this.player.maxHealth, this.player.health + n); }
+
+  die() {
+    this.player.dead = true;
+    this.mode = 'dead';
+    this.input.enabled = false;
+    this.input.unlock();
+    this.audio.sfx('die');
+    const el = h('div', 'screen');
+    el.style.background = 'rgba(120,0,0,0.55)';
+    el.innerHTML = '<div style="font-size:22px;text-shadow:3px 3px 0 #000">Vous êtes tombé !</div><div style="font-size:10px">Un monstre vous a ramené à zéro...</div>';
+    const b = h('button', 'btn green', 'Réapparaître');
+    b.onclick = () => {
+      this.ui.close();
+      this.respawn();
+      this.player.dead = false;
+      this.mode = 'play';
+      this.input.enabled = true;
+      this.input.lock();
+      this.onRespawn();
+    };
+    el.append(b);
+    this.ui.show(el);
+  }
+
+  protected onRespawn() { /* surchargé */ }
+
+  // ---------------------------------------------------------- sauvegarde
+  collectMeta(): SaveMeta {
+    const b = this.player.body;
+    return {
+      version: 1, seed: this.world.seed, time: this.sky.time, playTime: this.playTime,
+      player: { x: b.x, y: b.y, z: b.z, yaw: this.player.yaw, pitch: this.player.pitch, health: this.player.health },
+      inventory: this.inv.toJSON(), hotbar: this.inv.selected, creative: this.settings.creative,
+      savedAt: Date.now(),
+    };
+  }
+
+  async saveNow() {
+    if (this.mode === 'init' || this.mode === 'loading' || !this.world) return;
+    if (this.mode === 'title' && !this.meta) return;
+    const mods = new Map<string, number[]>();
+    for (const k of this.world.dirtyChunks) {
+      const m = this.world.mods.get(k);
+      if (!m) continue;
+      const arr: number[] = [];
+      for (const [i, v] of m) arr.push(i, v);
+      mods.set(String(k), arr);
     }
+    this.world.dirtyChunks.clear();
+    await saveAll(this.collectMeta(), mods);
   }
 
   // ---------------------------------------------------------------- boucle
@@ -189,10 +379,17 @@ export class Game {
     if (this.fpsAcc >= 0.5) { this.fps = this.fpsFrames / this.fpsAcc; this.fpsAcc = 0; this.fpsFrames = 0; }
 
     if (this.mode === 'title' || this.mode === 'loading') this.updateTitle(dt);
-    else if (this.mode === 'play' || this.mode === 'pause') this.updateGame(dt);
+    else if (this.mode === 'play' || this.mode === 'pause' || this.mode === 'dead') this.updateGame(dt);
 
-    this.sky.update(dt, this.world.renderDistance);
+    this.sky.update(this.mode === 'pause' ? 0 : dt, this.world.renderDistance);
+    this.renderer.autoClear = true;
     this.renderer.render(this.scene, this.camera);
+    if (this.mode === 'play' || this.mode === 'pause') {
+      this.renderer.autoClear = false;
+      this.renderer.clearDepth();
+      this.renderer.render(this.hand.scene, this.hand.camera);
+      this.renderer.autoClear = true;
+    }
     this.input.endFrame();
     requestAnimationFrame(() => this.frame());
   }
@@ -208,10 +405,38 @@ export class Game {
 
   protected updateGame(dt: number) {
     const p = this.player;
-    if (this.mode === 'play') {
+    const playing = this.mode === 'play';
+    const active = playing && this.input.locked && this.input.enabled && !this.screenOpen;
+    if (playing) {
+      this.playTime += dt;
       p.update(dt, this.world, this.input, this.settings, this.elapsed);
+      // barre rapide
+      if (active) {
+        if (this.input.wheel) {
+          this.inv.selected = (this.inv.selected + (this.input.wheel > 0 ? 1 : 8)) % 9;
+          this.hud.refresh();
+        }
+        if (this.input.digit >= 0) { this.inv.selected = this.input.digit; this.hud.refresh(); }
+      }
+      this.sinceHurt += dt;
+      if (this.sinceHurt > 6 && p.health < p.maxHealth && !p.dead) {
+        this.regenT += dt;
+        if (this.regenT > 3) { this.regenT = 0; p.health = Math.min(p.maxHealth, p.health + 1); }
+      }
+      this.interaction.update(dt, active, this.settings.creative);
+      for (const fn of this.extras) fn(dt);
+      this.fx.update(dt, p, this.inv, this.settings.creative);
+      this.autosave(dt);
     }
     this.world.update(p.body.x, p.body.z);
+    // main
+    const held = this.inv.held?.id ?? null;
+    this.hand.set(held);
+    this.hand.update(dt, Math.min(1, Math.hypot(p.body.vx, p.body.vz) / 4) * (p.body.onGround ? 1 : 0), p.sprinting);
+    this.hud.setHealth(p.health, p.maxHealth);
+    this.hud.update(dt);
+    this.hud.clickMsg.classList.toggle('hidden', !(playing && !this.input.locked && !this.screenOpen && this.mode === 'play'));
+    this.audio.update(this.elapsed, this.sky.isNight, playing);
     // caméra
     p.eyePos(this.camera.position);
     this.camera.position.y += Math.sin(p.bob) * 0.03 * Math.min(1, Math.hypot(p.body.vx, p.body.vz) / 4);
@@ -226,9 +451,16 @@ export class Game {
     if (this.settings.showFps) {
       const st = this.world.stats();
       this.ui.info.classList.remove('hidden');
-      this.ui.info.innerHTML = `${this.fps.toFixed(0)} i/s<br>XYZ ${p.body.x.toFixed(1)} ${p.body.y.toFixed(1)} ${p.body.z.toFixed(1)}<br>Chunks ${st.chunks} · ${Math.round(st.tris / 1000)}k triangles`;
+      this.ui.info.innerHTML = `${this.fps.toFixed(0)} i/s<br>XYZ ${p.body.x.toFixed(1)} ${p.body.y.toFixed(1)} ${p.body.z.toFixed(1)}<br>Chunks ${st.chunks} · ${Math.round(st.tris / 1000)}k triangles<br>Heure ${String(Math.floor((this.sky.time * 24 + 6) % 24)).padStart(2, '0')}h`;
     } else this.ui.info.classList.add('hidden');
+    this.hud.setWeaponInfo(weaponHtml(held));
+  }
+
+  private autosave(dt: number) {
+    this.saveT += dt;
+    if (this.saveT > 15) { this.saveT = 0; void this.saveNow(); }
   }
 
   saveSettingsNow() { saveSettings(this.settings); }
+  itemLabel(id: string) { return ITEMS[id].label; }
 }

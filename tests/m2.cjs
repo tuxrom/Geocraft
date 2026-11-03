@@ -1,0 +1,43 @@
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const logs = [];
+  page.on('console', (m) => { if (!m.text().includes('vite')) logs.push(m.type() + ': ' + m.text()); });
+  page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message));
+  await page.goto('http://127.0.0.1:5173/');
+  await page.waitForTimeout(3500);
+  await page.evaluate(() => localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, showFps: true })));
+  await page.reload();
+  await page.waitForTimeout(3500);
+  await page.click('text=Jouer');
+  await page.waitForTimeout(2500);
+  const info = () => page.evaluate(() => ({ mode: __geo.mode, lock: __geo.input.locked, dirt: __geo.inv.count('b_dirt'), stone: __geo.inv.count('b_stone'), sel: __geo.inv.selected, held: __geo.inv.held && __geo.inv.held.id, hit: __geo.interaction.hit && [__geo.interaction.hit.x, __geo.interaction.hit.y, __geo.interaction.hit.z] }));
+  console.log(JSON.stringify(await info()));
+  // regarde vers le sol
+  await page.evaluate(() => { __geo.player.pitch = -1.4; });
+  await page.waitForTimeout(300);
+  console.log(JSON.stringify(await info()));
+  await page.mouse.down({ button: 'left' });
+  await page.waitForTimeout(2500);
+  await page.mouse.up({ button: 'left' });
+  await page.waitForTimeout(1200);
+  console.log('apres minage', JSON.stringify(await info()));
+  await page.screenshot({ path: 'tests/out/m2-mine.png' });
+  // pose
+  await page.keyboard.press('2'); await page.keyboard.press('1');
+  await page.evaluate(() => { __geo.inv.add('b_planks', 10); __geo.inv.add('b_stairs_wood', 4); __geo.inv.add('b_pyramid', 2); __geo.inv.add('b_prism', 2); __geo.inv.add('b_dome', 2); __geo.inv.add('b_door', 2); __geo.inv.add('b_ladder', 2); __geo.player.pitch = -0.2; });
+  await page.evaluate(() => { __geo.inv.selected = 2; __geo.hud.refresh(); });
+  await page.mouse.down({ button: 'right' }); await page.waitForTimeout(100); await page.mouse.up({ button: 'right' });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: 'tests/out/m2-place.png' });
+  await page.keyboard.press('e');
+  await page.waitForTimeout(600);
+  console.log('inv open', JSON.stringify(await page.evaluate(() => ({ open: __geo.screens.open, lock: __geo.input.locked, mode: __geo.mode }))));
+  await page.screenshot({ path: 'tests/out/m2-inv.png' });
+  await page.keyboard.press('e');
+  await page.waitForTimeout(600);
+  console.log('inv closed', JSON.stringify(await page.evaluate(() => ({ open: __geo.screens.open, lock: __geo.input.locked, mode: __geo.mode }))));
+  console.log(logs.join('\n'));
+  await browser.close();
+})();
