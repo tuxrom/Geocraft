@@ -126,6 +126,7 @@ export class Sky {
   update(dt: number, renderDist: number) {
     if (!this.frozen) this.time = (this.time + dt / DAY_LENGTH) % 1;
     this.cloudTime += dt;
+    worldUniforms.time.value += dt;
     const phi = this.time * Math.PI * 2;
     const e = Math.sin(phi);
     const d = smooth(-0.14, 0.22, e);

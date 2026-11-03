@@ -20,6 +20,7 @@ import { Mobs, Spawner, type MobCtx } from './mobs';
 import { Projectiles } from './projectiles';
 import { Combat } from './combat';
 import { Professor } from './npc';
+import { EquationBoss } from './boss';
 import { HUB_X, HUB_Z, HUB_H } from '../world/gen';
 
 export type Mode = 'init' | 'title' | 'loading' | 'play' | 'pause' | 'dead';
@@ -119,6 +120,7 @@ export class Game {
   }
 
   async init() {
+    try { await Promise.all([document.fonts.load('16px "Press Start 2P"'), document.fonts.load('16px "Press Start 2P"', 'π√²')]); } catch { /* police système */ }
     this.meta = await loadMeta();
     const seed = this.meta?.seed ?? (Math.floor(Math.random() * 2 ** 31) | 0);
     await this.createWorld(seed, this.meta ? await loadMods() : {});
@@ -147,6 +149,11 @@ export class Game {
       get night() { return g.sky.isNight; },
       get time() { return g.elapsed; },
     };
+    this.mobCtx.onBossEvent = (ev, m) => {
+      if (ev === 'phase') this.ui.toast(`${m.hp > 0 ? 'Nouvelle équation ! Trouvez et frappez les racines.' : ''}`, 2800);
+      else if (ev === 'defeat') { this.ui.toast('Q.E.D. : l’équation est résolue !', 4000); this.settingsBossKills++; }
+    };
+    this.interaction.onAltar = (x, y, z) => this.summonBoss(x, y, z);
     this.combat = new Combat(this.world, this.player, this.input, this.inv, this.interaction, this.hand, this.audio, this.fx, this.mobs, this.proj, this.ui, () => this.mobCtx, (n) => this.heal(n));
     this.onWorldCreated();
   }
@@ -251,6 +258,7 @@ export class Game {
   }
 
   prof: Professor | null = null;
+  settingsBossKills = 0;
 
   protected afterLoad() {
     this.mobs.clear();
@@ -342,6 +350,15 @@ export class Game {
     this.ui.flashDamage();
     this.audio.sfx('hurt');
     if (this.player.health <= 0) this.die();
+  }
+
+  summonBoss(x: number, y: number, z: number) {
+    if (this.mobs.list.some((m) => m.kind === 'boss' && !m.dead)) { this.ui.toast('Une équation est déjà éveillée.'); return; }
+    const diff = this.spawner.difficulty(this.player, false);
+    const b = new EquationBoss(x + 0.5, y + 8, z + 0.5, diff, this.proj);
+    this.mobs.add(b);
+    this.audio.sfx('roar', 1);
+    this.ui.toast('L’autel s’illumine : une équation s’éveille ! Frappez ses racines lumineuses.', 4000);
   }
 
   /** Dégâts infligés par un ennemi : bouclier, recul et ralentissement. */
@@ -484,6 +501,8 @@ export class Game {
     const held = this.inv.held?.id ?? null;
     this.hand.set(held);
     this.hand.update(dt, Math.min(1, Math.hypot(p.body.vx, p.body.vz) / 4) * (p.body.onGround ? 1 : 0), p.sprinting);
+    const boss = this.mobs.list.find((m) => m.kind === 'boss' && !m.dead);
+    this.hud.setBoss(boss ? (boss as EquationBoss).name : null, boss ? boss.hp / boss.maxHp : 0);
     this.hud.setHealth(p.health, p.maxHealth);
     this.hud.update(dt);
     this.hud.clickMsg.classList.toggle('hidden', !(playing && !this.input.locked && !this.screenOpen && this.mode === 'play'));

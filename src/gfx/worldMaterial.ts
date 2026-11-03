@@ -8,6 +8,7 @@ export interface WorldUniforms {
   fogFar: { value: number };
   dayLight: { value: number };
   tint: { value: THREE.Color };
+  time: { value: number };
 }
 
 const vert = /* glsl */ `
@@ -34,12 +35,15 @@ uniform float fogFar;
 uniform float dayLight;
 uniform vec3 tint;
 uniform float water;
+uniform float time;
 varying vec2 vUv;
 varying float vTile;
 varying float vLight;
 varying float vDist;
 void main() {
-  vec2 f = clamp(fract(vUv), 0.002, 0.998);
+  vec2 uvw = vUv;
+  if (water > 0.5) { uvw += vec2(time * 0.05, time * 0.035); }
+  vec2 f = clamp(fract(uvw), 0.002, 0.998);
   float col = mod(vTile + 0.5, ${ATLAS_COLS}.0);
   float row = floor((vTile + 0.5) / ${ATLAS_COLS}.0);
   vec2 auv = (vec2(floor(col), row) + f) / vec2(${ATLAS_COLS}.0, ${ATLAS_ROWS}.0);
@@ -57,6 +61,7 @@ export const worldUniforms: WorldUniforms = {
   fogFar: { value: 120 },
   dayLight: { value: 1 },
   tint: { value: new THREE.Color(1, 1, 1) },
+  time: { value: 0 },
 };
 
 export function makeWorldMaterials(): { opaque: THREE.ShaderMaterial; water: THREE.ShaderMaterial } {

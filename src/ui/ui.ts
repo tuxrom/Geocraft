@@ -171,9 +171,13 @@ export class UI {
     opt.onclick = () => this.options(() => this.pause());
     const fs = h('button', 'btn', 'Plein écran (F11)');
     fs.onclick = () => toggleFullscreen();
-    const quit = h('button', 'btn red', 'Quitter vers le titre');
+    const quit = h('button', 'btn', 'Quitter vers le titre');
     quit.onclick = () => this.cb.onQuitToTitle();
-    menu.append(resume, opt, fs, quit);
+    const fresh = h('button', 'btn red', 'Repartir d’un monde neuf');
+    fresh.onclick = () => {
+      if (confirm('Repartir d’un monde neuf efface définitivement votre sauvegarde (monde, inventaire, position). Continuer ?')) this.cb.onNewWorld();
+    };
+    menu.append(resume, opt, fs, quit, fresh);
     p.append(menu);
     el.append(p);
     this.show(el);

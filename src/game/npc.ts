@@ -95,7 +95,7 @@ export class Professor implements Mob {
     this.obj.add(body);
 
     // étiquette
-    this.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture([{ t: 'Professeur Théorème', size: 14, color: '#ffe27a', y: 18 }], 320, 36, null), transparent: true, depthTest: false }));
+    this.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture([{ t: 'Professeur Théorème', size: 14, color: '#ffe27a', y: 18 }], 320, 36, null), transparent: true, depthTest: true }));
     this.tag.scale.set(3.2, 0.36, 1);
     this.tag.position.set(0, 2.55, 0);
     this.tag.renderOrder = 45;

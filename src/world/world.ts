@@ -42,6 +42,10 @@ export class World {
   private group = new THREE.Group();
   private uploads: { chunk: Chunk; res: MeshResult; version: number }[] = [];
   private jobSeq = 0;
+  private planT = 0;
+  private lastPcx = 1e9;
+  private lastPcz = 1e9;
+  private lastR = -1;
   private inflight = new Set<string>();
   dirtySave = false;
   dirtyChunks = new Set<number>();
@@ -115,6 +119,7 @@ export class World {
     if (c.blocks[i] === id) return true;
     c.blocks[i] = id;
     c.version++;
+    this.planT = 0;
     const k = ckey(cx, cz);
     let m = this.mods.get(k);
     if (!m) { m = new Map(); this.mods.set(k, m); }
@@ -209,6 +214,10 @@ export class World {
   update(px: number, pz: number) {
     const pcx = Math.floor(px / 16), pcz = Math.floor(pz / 16);
     const R = this.renderDistance;
+    const now = performance.now();
+    const moved = pcx !== this.lastPcx || pcz !== this.lastPcz || R !== this.lastR;
+    if (!moved && now - this.planT < 120) { this.pump(); return; }
+    this.planT = now; this.lastPcx = pcx; this.lastPcz = pcz; this.lastR = R;
     // Chunks voulus (génération à R+1 pour pouvoir mailler R)
     const want: { cx: number; cz: number; d: number }[] = [];
     for (let dz = -R - 1; dz <= R + 1; dz++) for (let dx = -R - 1; dx <= R + 1; dx++) {
@@ -243,7 +252,11 @@ export class World {
       if (c.opaque) c.opaque.visible = vis;
       if (c.water) c.water.visible = vis;
     }
-    // envoi GPU (budget par image)
+    this.pump();
+  }
+
+  /** Envoi GPU des maillages reçus (budget par image). */
+  private pump() {
     let n = 0;
     while (this.uploads.length && n < 3) {
       const u = this.uploads.shift()!;
@@ -292,6 +305,7 @@ export class World {
 
   private onWorker(wi: number, m: { type: string; cx: number; cz: number; blocks?: Uint8Array; result?: MeshResult; version?: number }) {
     this.busy[wi] = false;
+    this.planT = 0;
     const c = this.chunks.get(ckey(m.cx, m.cz));
     if (m.type === 'gen') {
       if (c) { c.blocks = m.blocks!; c.genPending = false; c.version++; }
