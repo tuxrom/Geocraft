@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const ctx = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  await page.goto('http://127.0.0.1:4173/');
+  await page.evaluate(() => localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, platform: 'mobile' })));
+  await page.reload(); await page.waitForTimeout(4000);
+  await page.getByText('Jouer').tap(); await page.waitForTimeout(3500);
+  await page.evaluate(() => { __geo.inv.add('b_planks', 5); __geo.inv.selected = 2; __geo.hud.refresh(); __geo.player.pitch = -0.6; });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => { window.__log = []; const i = __geo.input; const d = Object.getOwnPropertyDescriptor; });
+  await page.locator('.tc-btn.use').tap();
+  await page.waitForTimeout(400);
+  console.log('après tap', await page.evaluate(() => __geo.inv.count('b_planks')));
+  await page.evaluate(() => { __geo.input.mousePressed[2] = true; });
+  await page.waitForTimeout(400);
+  console.log('après flag', await page.evaluate(() => __geo.inv.count('b_planks')), await page.evaluate(() => [__geo.input.locked, __geo.input.enabled, __geo.screenOpen, __geo.mode]));
+  await browser.close();
+})();

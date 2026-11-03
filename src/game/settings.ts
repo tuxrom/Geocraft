@@ -26,12 +26,14 @@ export interface Settings {
   invertY: boolean;
   helpSeen: boolean;
   creative: boolean;
+  /** Plateforme choisie au lancement : ordinateur (clavier, souris) ou mobile (tactile). */
+  platform: 'pc' | 'mobile' | null;
   keys: Record<Action, string[]>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   renderDistance: 6, fov: 75, sensitivity: 1, master: 0.7, sfx: 0.8, music: 0.4,
-  clouds: true, showFps: false, invertY: false, helpSeen: false, creative: false,
+  clouds: true, showFps: false, invertY: false, helpSeen: false, creative: false, platform: null,
   keys: JSON.parse(JSON.stringify(DEFAULT_KEYS)),
 };
 

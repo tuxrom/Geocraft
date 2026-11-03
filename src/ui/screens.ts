@@ -103,6 +103,13 @@ export class Screens {
     else if (this.tab === 'craft') this.buildCraft(panel);
     else if (this.tab === 'creative') this.buildCreative(panel);
     else this.buildShop(panel);
+    if (document.body.classList.contains('mobile')) {
+      const x = h('button', 'btn small red', 'X');
+      x.style.cssText = 'position:absolute;right:6px;top:6px;min-width:0;padding:6px 10px;z-index:5';
+      x.onclick = () => this.close();
+      panel.style.position = 'relative';
+      panel.append(x);
+    }
     wrap.append(tabs, panel);
     root.append(wrap);
     this.root = root;
@@ -134,7 +141,8 @@ export class Screens {
     const hot = this.grid(0, HOTBAR, 9);
     hot.style.marginTop = '14px';
     panel.append(main, hot);
-    const hint = h('div', 'desc', 'Clic : prendre ou poser · Clic droit : moitié ou un seul · Maj + clic : déplacer · Glissez un objet hors de la fenêtre pour le jeter.');
+    const mob = document.body.classList.contains('mobile');
+    const hint = h('div', 'desc', mob ? 'Touchez un objet, puis une case pour le déplacer. Touchez hors de la fenêtre pour le jeter.' : 'Clic : prendre ou poser · Clic droit : moitié ou un seul · Maj + clic : déplacer · Glissez un objet hors de la fenêtre pour le jeter.');
     hint.style.marginTop = '10px';
     hint.style.maxWidth = '500px';
     panel.append(hint);

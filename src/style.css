@@ -125,3 +125,67 @@ img.px, canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; }
 .keybtn { min-width: 110px; font: 9px var(--px); padding: 6px; background: #555; color: #fff; border: 2px solid #000; cursor: pointer; }
 .keybtn.wait { background: #b8860b; }
 .scroll { max-height: 70vh; overflow-y: auto; padding-right: 8px; }
+
+/* ---------- version mobile / tactile ---------- */
+html, body { overscroll-behavior: none; touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+#touch { position: absolute; inset: 0; pointer-events: none; }
+#touch.hidden { display: none; }
+.tc-zone { position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
+.tc-joy, .tc-knob { position: fixed; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.tc-joy { width: 124px; height: 124px; border: 3px solid rgba(255,255,255,0.45); background: rgba(255,255,255,0.12); }
+.tc-knob { width: 54px; height: 54px; background: rgba(255,255,255,0.55); border: 3px solid rgba(0,0,0,0.5); }
+.tc-btn {
+  position: absolute; pointer-events: auto; display: flex; align-items: center; justify-content: center; text-align: center;
+  font: 9px/1.2 var(--px); color: #fff; text-shadow: 2px 2px 0 #000; user-select: none; touch-action: none;
+  background: rgba(40,40,40,0.5); border: 3px solid rgba(255,255,255,0.55); border-radius: 50%;
+}
+.tc-btn.on { background: rgba(120,160,255,0.7); }
+.tc-btn.lit { background: rgba(92,168,54,0.75); }
+.tc-btn.attack { right: calc(18px + env(safe-area-inset-right)); bottom: calc(86px + env(safe-area-inset-bottom)); width: 92px; height: 92px; font-size: 10px; background: rgba(170,50,50,0.55); }
+.tc-btn.use { right: calc(124px + env(safe-area-inset-right)); bottom: calc(70px + env(safe-area-inset-bottom)); width: 74px; height: 74px; }
+.tc-btn.jump { right: calc(30px + env(safe-area-inset-right)); bottom: calc(190px + env(safe-area-inset-bottom)); width: 74px; height: 74px; }
+.tc-btn.crouch { left: calc(18px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); width: 58px; height: 58px; font-size: 8px; }
+.tc-btn.sprint { left: calc(86px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); width: 58px; height: 58px; font-size: 8px; }
+.tc-btn.act-f { right: calc(134px + env(safe-area-inset-right)); bottom: calc(160px + env(safe-area-inset-bottom)); width: 50px; height: 50px; }
+.tc-btn.act-r { right: calc(194px + env(safe-area-inset-right)); bottom: calc(130px + env(safe-area-inset-bottom)); width: 44px; height: 44px; }
+.tc-btn.top { top: calc(8px + env(safe-area-inset-top)); width: 52px; height: 34px; border-radius: 6px; font-size: 8px; }
+.tc-btn.t1 { left: calc(50% - 90px); } .tc-btn.t2 { left: calc(50% - 26px); } .tc-btn.t3 { left: calc(50% + 38px); }
+
+body.mobile .hslot { width: 40px; height: 40px; border-width: 2px; }
+body.mobile .hslot .key { display: none; }
+body.mobile #hotbar { bottom: calc(6px + env(safe-area-inset-bottom)); padding: 2px; }
+body.mobile #hotbar, body.mobile #hotbar .hslot { pointer-events: auto !important; }
+body.mobile #bars { bottom: calc(54px + env(safe-area-inset-bottom)); width: min(360px, 60vw); }
+body.mobile #hearts canvas { width: 16px; height: 16px; }
+body.mobile #res { top: 8px; right: 8px; padding: 4px; font-size: 7px; gap: 2px 6px; }
+body.mobile #res .rr img { width: 12px; height: 12px; }
+body.mobile #itemname { bottom: 86px; font-size: 9px; }
+body.mobile #weapon-hud { display: none; }
+body.mobile #info { top: 48px; font-size: 7px; }
+body.mobile #crosshair { opacity: 0.8; }
+body.mobile #bossbar { top: 50px; }
+body.mobile #toast { font-size: 10px; top: 22%; }
+body.mobile .slot { width: 42px; height: 42px; }
+body.mobile .slotgrid { grid-template-columns: repeat(9, 42px) !important; gap: 2px; }
+body.mobile .grid-creative { grid-template-columns: repeat(9, 42px); max-height: 26vh; }
+body.mobile .panel { padding: 8px; }
+body.mobile .panel h2 { font-size: 11px; margin-bottom: 6px; }
+body.mobile .screen > div:not(.panel):not(.menu):not(.logo) { max-height: 98vh; overflow-y: auto; }
+body.mobile .list { max-height: 34vh; }
+body.mobile .desc { font-size: 8px; }
+body.mobile .offer { padding: 4px; font-size: 8px; }
+body.mobile .offer .ico { width: 32px; height: 32px; }
+body.mobile .logo canvas { width: 34px; height: 48px; }
+body.mobile .btn { padding: 9px 10px; font-size: 10px; min-width: 190px; }
+body.mobile .btn.small { min-width: 0; }
+body.mobile .scroll { max-height: 62vh; }
+body.mobile .tooltip { display: none; }
+body.mobile #help { font-size: 8px; line-height: 1.6; max-height: 92vh; overflow-y: auto; }
+body.mobile .keys { grid-template-columns: 1fr; }
+body.mobile .opt input[type=range] { width: 130px; }
+@media (orientation: portrait) {
+  body.mobile::after {
+    content: 'Tournez votre téléphone en mode paysage pour jouer'; position: fixed; inset: 0; z-index: 999; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 30px; background: rgba(0,0,0,0.88); font: 12px/2 var(--px); color: #ffe27a;
+  }
+}

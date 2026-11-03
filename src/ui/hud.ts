@@ -52,6 +52,7 @@ export class Hud {
     for (let i = 0; i < HOTBAR; i++) {
       const s = h('div', 'hslot');
       s.append(h('span', 'key', String(i + 1)));
+      s.addEventListener('pointerdown', () => { if (document.body.classList.contains('mobile')) { this.inv.selected = i; this.refresh(); } });
       hot.append(s);
       this.slots.push(s);
     }
@@ -146,12 +147,21 @@ export class Hud {
     }
   }
 
-  showHelp(onClose: () => void) {
+  showHelp(onClose: () => void, touch = false) {
     const k = this.keyLabels();
     const el = h('div', 'panel');
     el.id = 'help';
     el.style.pointerEvents = 'auto';
-    el.innerHTML = `<h2>Bienvenue dans Geocraft</h2><table>
+    el.innerHTML = touch ? `<h2>Bienvenue dans Geocraft</h2><table>
+      <tr><td>Joystick</td><td>Glisser le pouce à gauche pour se déplacer (à fond vers l'avant : courir)</td></tr>
+      <tr><td>Regard</td><td>Glisser le doigt à droite de l'écran</td></tr>
+      <tr><td>FRAPPER</td><td>Frapper ou miner (maintenu)</td></tr>
+      <tr><td>POSER</td><td>Poser un bloc, ouvrir une porte, utiliser l'objet, bouclier</td></tr>
+      <tr><td>SAUT / ACCR.</td><td>Sauter, s'accroupir (bascule)</td></tr>
+      <tr><td>Barre du bas</td><td>Toucher un objet pour le prendre en main</td></tr>
+      <tr><td>SAC / FAB.</td><td>Inventaire, fabrication</td></tr>
+      <tr><td>F / R</td><td>Parler au Professeur, régler l'arme</td></tr></table>
+      <p style="font-size:9px;line-height:1.8;color:#333">Récoltez du bois et de la pierre, rejoignez la cabane du Professeur Théorème, et survivez la nuit aux fractions et aux vecteurs.</p>` : `<h2>Bienvenue dans Geocraft</h2><table>
       <tr><td>${k.forward}${k.left}${k.back}${k.right}</td><td>Se déplacer (ZQSD ou WASD)</td></tr>
       <tr><td>${k.jump} / ${k.sprint} / ${k.crouch}</td><td>Sauter / courir / s'accroupir</td></tr>
       <tr><td>Clic gauche</td><td>Frapper ou miner (maintenu)</td></tr>

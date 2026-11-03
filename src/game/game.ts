@@ -21,6 +21,7 @@ import { Projectiles } from './projectiles';
 import { Combat } from './combat';
 import { Professor } from './npc';
 import { EquationBoss } from './boss';
+import { TouchControls } from '../ui/touch';
 import { HUB_X, HUB_Z, HUB_H } from '../world/gen';
 
 export type Mode = 'init' | 'title' | 'loading' | 'play' | 'pause' | 'dead';
@@ -48,6 +49,7 @@ export class Game {
   mobCtx!: MobCtx;
   hud!: Hud;
   screens!: Screens;
+  touch!: TouchControls;
   mode: Mode = 'init';
   screenOpen = false;
   meta: SaveMeta | null = null;
@@ -82,6 +84,12 @@ export class Game {
       onResume: () => this.resume(),
       onQuitToTitle: () => this.toTitle(),
       onSettingsChanged: () => this.applySettings(),
+      onPlatform: (p) => this.setPlatform(p),
+    });
+    this.touch = new TouchControls(this.ui.root, this.ui.hud, this.input, this.settings, {
+      inventory: () => this.openScreen('inv'),
+      craft: () => this.openScreen('craft'),
+      pause: () => this.openPause(),
     });
     this.hud = new Hud(this.ui.hud, this.inv, () => this.keyLabels());
     this.screens = new Screens(this.ui, this.inv, {
@@ -125,7 +133,9 @@ export class Game {
     const seed = this.meta?.seed ?? (Math.floor(Math.random() * 2 ** 31) | 0);
     await this.createWorld(seed, this.meta ? await loadMods() : {});
     this.mode = 'title';
-    this.ui.title(!!this.meta);
+    this.setPlatform(this.settings.platform ?? (window.matchMedia?.('(pointer: coarse)').matches ? 'mobile' : 'pc'), false);
+    if (this.settings.platform) this.ui.title(!!this.meta);
+    else this.ui.platformChoice(() => this.ui.title(!!this.meta));
     this.applySettings();
     this.last = performance.now();
     requestAnimationFrame(() => this.frame());
@@ -161,6 +171,24 @@ export class Game {
   /** Extension pour les jalons suivants. */
   protected onWorldCreated() { /* surchargé */ }
   addSystem(fn: (dt: number) => void) { this.extras.push(fn); }
+
+  /** Bascule entre ordinateur (clavier, souris) et mobile (tactile). */
+  setPlatform(p: 'pc' | 'mobile', save = true) {
+    const first = this.settings.platform === null;
+    if (save) {
+      this.settings.platform = p;
+      if (first && p === 'mobile') { this.settings.renderDistance = 4; this.settings.clouds = false; }
+      saveSettings(this.settings);
+    }
+    const mobile = p === 'mobile';
+    document.body.classList.toggle('mobile', mobile);
+    this.input.touch = mobile;
+    this.input.axisX = this.input.axisY = 0;
+    this.input.autoSprint = false;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
+    this.resize();
+    if (this.world) this.applySettings();
+  }
 
   applySettings() {
     this.world.renderDistance = this.settings.renderDistance;
@@ -198,6 +226,10 @@ export class Game {
   }
 
   async play() {
+    if (this.input.touch) {
+      try { await document.documentElement.requestFullscreen?.(); } catch { /* refusé : on joue en fenêtre */ }
+      try { await (screen.orientation as unknown as { lock?: (o: string) => Promise<void> }).lock?.('landscape'); } catch { /* non pris en charge */ }
+    }
     this.input.lock();
     this.audio.init();
     this.mode = 'loading';
@@ -245,7 +277,7 @@ export class Game {
       saveSettings(this.settings);
       this.screenOpen = true;
       this.input.unlock();
-      this.hud.showHelp(() => { this.screenOpen = false; this.input.lock(); });
+      this.hud.showHelp(() => { this.screenOpen = false; this.input.lock(); }, this.input.touch);
     }
   }
 
@@ -443,6 +475,7 @@ export class Game {
     if (this.mode === 'title' || this.mode === 'loading') this.updateTitle(dt);
     else if (this.mode === 'play' || this.mode === 'pause' || this.mode === 'dead') this.updateGame(dt);
 
+    this.touch.setVisible(this.input.touch && this.mode === 'play' && !this.screenOpen);
     this.sky.update(this.mode === 'pause' ? 0 : dt, this.world.renderDistance);
     this.renderer.autoClear = true;
     this.renderer.render(this.scene, this.camera);

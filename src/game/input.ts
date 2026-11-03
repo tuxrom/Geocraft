@@ -25,6 +25,11 @@ export class Input {
   wheel = 0;
   digit = -1;
   locked = false;
+  /** Mode tactile : le verrouillage est virtuel et la souris est ignorée. */
+  touch = false;
+  axisX = 0;
+  axisY = 0;
+  autoSprint = false;
   enabled = false; // vrai quand le jeu écoute les entrées
   private settings: Settings;
 
@@ -33,25 +38,26 @@ export class Input {
     window.addEventListener('keydown', (e) => this.onKey(e, true));
     window.addEventListener('keyup', (e) => this.onKey(e, false));
     window.addEventListener('mousedown', (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.touch) return;
       this.mouse[e.button] = true;
       this.mousePressed[e.button] = true;
       e.preventDefault();
     });
     window.addEventListener('mouseup', (e) => { this.mouse[e.button] = false; });
     window.addEventListener('mousemove', (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.touch) return;
       this.dx += e.movementX;
       this.dy += e.movementY;
     });
     window.addEventListener('wheel', (e) => {
-      if (!this.locked) return;
+      if (!this.locked || this.touch) return;
       this.wheel += Math.sign(e.deltaY);
       e.preventDefault();
     }, { passive: false });
     window.addEventListener('contextmenu', (e) => { if (this.locked) e.preventDefault(); });
     window.addEventListener('blur', () => { this.down.clear(); this.mouse.fill(false); });
     document.addEventListener('pointerlockchange', () => {
+      if (this.touch) return;
       this.locked = document.pointerLockElement === this.canvas;
       if (!this.locked) { this.down.clear(); this.mouse.fill(false); }
       this.onLockChange?.(this.locked);
@@ -94,6 +100,10 @@ export class Input {
   }
 
   lock() {
+    if (this.touch) {
+      if (!this.locked) { this.locked = true; this.onLockChange?.(true); }
+      return;
+    }
     if (document.pointerLockElement !== this.canvas) {
       try {
         const p = this.canvas.requestPointerLock() as unknown as Promise<void> | undefined;
@@ -101,5 +111,16 @@ export class Input {
       } catch { /* ignore */ }
     }
   }
-  unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
+  unlock() {
+    if (this.touch) {
+      if (this.locked) { this.locked = false; this.down.clear(); this.mouse.fill(false); this.axisX = this.axisY = 0; this.autoSprint = false; this.onLockChange?.(false); }
+      return;
+    }
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  /** Touche virtuelle (boutons tactiles) : maintenue ou impulsion. */
+  virtualKey(id: string, down: boolean, pulse = false) {
+    if (down) { this.down.add(id); if (pulse || true) this.pressed.add(id); } else this.down.delete(id);
+  }
 }

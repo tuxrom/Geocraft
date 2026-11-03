@@ -9,6 +9,7 @@ Le jeu est écrit en TypeScript avec Vite et Three.js. Il n'utilise aucun fichie
 ## Sommaire
 
 - [Jouer](#jouer)
+- [Version mobile et PWA](#version-mobile-et-pwa)
 - [Contenu du jeu](#contenu-du-jeu)
 - [Développement local](#développement-local)
 - [Déploiement sur le serveur](#déploiement-sur-le-serveur)
@@ -42,6 +43,27 @@ Le jeu est écrit en TypeScript avec Vite et Three.js. Il n'utilise aucun fichie
 Toutes les touches se reprogramment dans Options. Le jeu se joue entièrement au clavier et à la souris.
 
 Le jeu se sauvegarde automatiquement dans le navigateur (IndexedDB) : modifications du monde, inventaire, position, vie et heure. Le bouton « Repartir d'un monde neuf » (écran titre et menu pause) efface la sauvegarde. La sauvegarde est liée au nom de domaine du site : elle reste dans le navigateur du joueur et ne passe jamais par le serveur.
+
+## Version mobile et PWA
+
+Au premier lancement, le jeu demande la plateforme : Ordinateur (clavier et souris) ou Mobile (écran tactile). Le choix se change à tout moment depuis l'écran titre ou Options. Le mode Mobile règle aussi la distance de rendu à 4 chunks, désactive les nuages et limite la résolution de rendu pour économiser la batterie.
+
+Commandes tactiles, en mode paysage :
+
+| Geste ou bouton | Action |
+| --- | --- |
+| Glisser le pouce dans la moitié gauche | Joystick flottant (à fond vers l'avant : courir) |
+| Glisser le doigt dans la moitié droite | Regarder autour de soi |
+| FRAPPER (maintenu) | Frapper ou miner |
+| POSER | Poser un bloc, ouvrir une porte, utiliser l'objet, lever un bouclier |
+| SAUT, ACCR., COURIR | Sauter, s'accroupir et courir (les deux derniers basculent) |
+| F, R | Parler au Professeur Théorème, régler l'arme |
+| SAC, FAB., II | Inventaire, fabrication, pause |
+| Barre du bas | Toucher un objet pour le prendre en main |
+
+Dans l'inventaire, toucher un objet puis une case le déplace. Le bouton X ferme les fenêtres.
+
+Le jeu est une PWA installable : manifeste (`manifest.webmanifest`), icônes et service worker (`sw.js`) sont servis par le même conteneur nginx. Après une première visite en HTTPS, le jeu fonctionne hors ligne. Pour l'installer, ouvrir le site dans Chrome ou Safari et choisir « Ajouter à l'écran d'accueil » (ou « Installer l'application ») : il se lance alors en plein écran, orienté en paysage. Le service worker exige HTTPS (ou `localhost`), ce que fournit le reverse proxy décrit plus bas. Une mise à jour du jeu est récupérée au rechargement suivant, car `index.html`, `sw.js` et le manifeste ne sont jamais mis en cache durablement.
 
 ## Contenu du jeu
 
@@ -295,6 +317,7 @@ node tests/m3.cjs      # les 27 armes, une par une
 node tests/m4.cjs      # boutique, amélioration, fabrication
 node tests/m5.cjs      # boss, phases, butin
 node tests/m6.cjs      # sauvegarde, rechargement, monde neuf
+node tests/mobile.cjs http://127.0.0.1:4173/   # tactile + PWA + hors ligne (npm run build && npm run preview)
 node tests/prod.cjs http://127.0.0.1:8080/
 ```
 

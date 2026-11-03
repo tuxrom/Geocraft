@@ -69,6 +69,8 @@ export class Player {
       if (inp.isDown('back')) fwd -= 1;
       if (inp.isDown('right')) side += 1;
       if (inp.isDown('left')) side -= 1;
+      fwd = Math.max(-1, Math.min(1, fwd + inp.axisY));
+      side = Math.max(-1, Math.min(1, side + inp.axisX));
     }
     const wantJump = active && inp.isDown('jump');
     const wantCrouch = active && inp.isDown('crouch');
@@ -96,7 +98,7 @@ export class Player {
       else this.crouching = true;
     } else { b.h = 1.8; this.eye = 1.62; }
 
-    this.sprinting = active && inp.isDown('sprint') && fwd > 0 && !this.crouching;
+    this.sprinting = active && (inp.isDown('sprint') || inp.autoSprint) && fwd > 0 && !this.crouching;
 
     let speed = 4.3;
     if (this.sprinting) speed = 5.8;
@@ -109,7 +111,7 @@ export class Player {
     let wx = -sy * fwd + cy * side;
     let wz = -cy * fwd - sy * side;
     const len = Math.hypot(wx, wz);
-    if (len > 0) { wx /= len; wz /= len; }
+    if (len > 1) { wx /= len; wz /= len; }
     const tx = wx * speed, tz = wz * speed;
     const accel = this.flying ? 12 : b.onGround ? 14 : this.inWater ? 8 : 3.2;
     const k = 1 - Math.exp(-accel * dt);

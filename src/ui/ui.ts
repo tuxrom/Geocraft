@@ -46,6 +46,7 @@ export interface UICallbacks {
   onResume(): void;
   onQuitToTitle(): void;
   onSettingsChanged(): void;
+  onPlatform(p: 'pc' | 'mobile'): void;
 }
 
 export class UI {
@@ -124,6 +125,31 @@ export class UI {
     return { set: (p, msg) => { fill.style.width = `${Math.round(p * 100)}%`; if (msg) t.textContent = msg; } };
   }
 
+  // ------------------------------------------------- choix de la plateforme
+  platformChoice(onDone: () => void) {
+    const el = h('div', 'screen');
+    el.id = 'title';
+    el.style.background = 'rgba(0,0,0,0.55)';
+    const logo = h('div', 'logo');
+    for (const ch of 'GEOCRAFT') logo.append(letterCanvas(ch));
+    const q = h('div', 'subtitle', 'Comment jouez-vous ?');
+    const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    const row = h('div', 'row');
+    row.style.flexWrap = 'wrap';
+    row.style.justifyContent = 'center';
+    const mk = (p: 'pc' | 'mobile', title: string, sub: string) => {
+      const b = h('button', 'btn' + ((p === 'mobile') === coarse ? ' green' : ''), `${title}<br><span style="font-size:8px;line-height:2">${sub}</span>`);
+      b.style.minWidth = '230px';
+      b.onclick = () => { this.cb.onPlatform(p); onDone(); };
+      row.append(b);
+    };
+    mk('pc', 'Ordinateur', 'Clavier et souris');
+    mk('mobile', 'Mobile', 'Écran tactile');
+    const note = h('div', 'footer', 'Ce choix se change à tout moment dans Options.');
+    el.append(logo, q, row, note);
+    this.show(el);
+  }
+
   // ----------------------------------------------------------------- titre
   title(hasSave: boolean) {
     const el = h('div', 'screen');
@@ -152,7 +178,10 @@ export class UI {
     cb.onchange = () => { this.settings.creative = cb.checked; saveSettings(this.settings); this.cb.onSettingsChanged(); };
     lab.append(cb, document.createTextNode('Mode créatif (vol, inventaire complet)'));
     menu.append(lab);
-    const foot = h('div', 'footer', 'Geocraft · Z/W Q/A S D pour bouger · Échap pour le menu');
+    const plat = h('button', 'btn small', `Plateforme : ${this.settings.platform === 'mobile' ? 'Mobile' : 'Ordinateur'} (changer)`);
+    plat.onclick = () => this.platformChoice(() => this.title(hasSave));
+    menu.append(plat);
+    const foot = h('div', 'footer', this.settings.platform === 'mobile' ? 'Geocraft · joystick à gauche, regard au doigt à droite' : 'Geocraft · Z/W Q/A S D pour bouger · Échap pour le menu');
     el.append(logo, sub, menu, foot);
     this.show(el);
   }
@@ -217,6 +246,15 @@ export class UI {
     };
     const title = (t: string) => { const e = h('div', '', t); e.style.cssText = 'font-size:10px;color:#6a1fb0;margin:12px 0 4px'; sc.append(e); };
 
+    title('Plateforme');
+    {
+      const row = h('div', 'opt');
+      const lab = h('span', '', `Mode : ${s.platform === 'mobile' ? 'Mobile (tactile)' : 'Ordinateur'}`);
+      const b = h('button', 'btn small', 'Changer');
+      b.onclick = () => this.platformChoice(() => this.options(back));
+      row.append(lab, b);
+      sc.append(row);
+    }
     title('Graphismes');
     slider('Distance de rendu', 2, 14, 1, () => s.renderDistance, (v) => (s.renderDistance = v), (v) => `${v} chunks`);
     slider('Champ de vision', 55, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`);
