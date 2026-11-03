@@ -4,6 +4,7 @@ import type { Input } from './input';
 import type { Settings } from './settings';
 import { moveBody, type Body } from './physics';
 import { clamp } from '../core/constants';
+import { B } from '../data/blocks';
 
 export class Player {
   body: Body = { x: 0, y: 80, z: 0, vx: 0, vy: 0, vz: 0, hw: 0.3, h: 1.8, onGround: false, hitX: false, hitZ: false };
@@ -14,6 +15,10 @@ export class Player {
   flying = false;
   inWater = false;
   headInWater = false;
+  inLava = false;
+  headInLava = false;
+  private lavaT = 0;
+  onLava?: () => void;
   crouching = false;
   sprinting = false;
   onLadder = false;
@@ -84,8 +89,14 @@ export class Player {
     if (!this.creative) this.flying = false;
 
     // environnement
-    this.inWater = w.inLiquid(b.x - b.hw, b.y + 0.2, b.z - b.hw, b.x + b.hw, b.y + 0.6, b.z + b.hw);
-    this.headInWater = w.inLiquid(b.x, b.y + this.eye, b.z, b.x, b.y + this.eye, b.z);
+    this.inLava = w.inBlock(b.x - b.hw, b.y + 0.1, b.z - b.hw, b.x + b.hw, b.y + 0.6, b.z + b.hw, B.lava);
+    this.headInLava = w.inBlock(b.x, b.y + this.eye, b.z, b.x, b.y + this.eye, b.z, B.lava);
+    this.inWater = this.inLava || w.inLiquid(b.x - b.hw, b.y + 0.2, b.z - b.hw, b.x + b.hw, b.y + 0.6, b.z + b.hw);
+    this.headInWater = !this.headInLava && w.inLiquid(b.x, b.y + this.eye, b.z, b.x, b.y + this.eye, b.z);
+    if (this.inLava) {
+      this.lavaT -= dt;
+      if (this.lavaT <= 0) { this.lavaT = 0.5; this.onLava?.(); }
+    } else this.lavaT = 0;
     this.onLadder = w.inClimb(b.x - b.hw, b.y, b.z - b.hw, b.x + b.hw, b.y + 1, b.z + b.hw);
 
     // accroupi
@@ -103,7 +114,7 @@ export class Player {
     let speed = 4.3;
     if (this.sprinting) speed = 5.8;
     if (this.crouching) speed = 1.6;
-    if (this.inWater) speed *= 0.6;
+    if (this.inWater) speed *= this.inLava ? 0.35 : 0.6;
     if (this.flying) speed = this.sprinting ? 16 : 9;
     speed *= this.speedMul;
 

@@ -1,4 +1,4 @@
-import { B, BLOCKS, FACE_TILE, OPAQUE, LIQUID, FULLCUBE, type Box } from '../data/blocks';
+import { B, BLOCKS, FACE_TILE, OPAQUE, LIQUID, FULLCUBE, GLOW, type Box } from '../data/blocks';
 import { bidx } from '../core/constants';
 
 export interface MeshData {
@@ -49,7 +49,8 @@ class Builder {
 }
 
 const DARK = 0.4;
-const LEVEL = [DARK, 0.7, 1];
+/** Niveau 3 : bloc lumineux (lave), signalé au shader par une valeur > 1.5. */
+const LEVEL = [DARK, 0.7, 1, 2];
 const SHADE = [0.72, 0.72, 1.0, 0.5, 0.86, 0.86]; // +x -x +y -y +z -z
 
 /** Coordonnées de texture (en unités de bloc) pour une face, depuis la position monde. */
@@ -132,12 +133,12 @@ export function meshChunk(
           // face de a vers +d
           if (a !== 0 && !SHAPED[a] && x[d] >= 0 && faceDrawn(a, b)) {
             const tile = FACE_TILE[a * 6 + d * 2];
-            const l = lit(x[0] + q[0], x[1] + q[1], x[2] + q[2]);
-            key = 1 + (((tile * 3 + l) * 2 + (LIQUID[a] ? 1 : 0)) * 2 + 0);
+            const l = GLOW[a] ? 3 : lit(x[0] + q[0], x[1] + q[1], x[2] + q[2]);
+            key = 1 + (((tile * 4 + l) * 2 + (LIQUID[a] ? 1 : 0)) * 2 + 0);
           } else if (b !== 0 && !SHAPED[b] && x[d] < dims[d] - 1 && faceDrawn(b, a)) {
             const tile = FACE_TILE[b * 6 + d * 2 + 1];
-            const l = lit(x[0], x[1], x[2]);
-            key = 1 + (((tile * 3 + l) * 2 + (LIQUID[b] ? 1 : 0)) * 2 + 1);
+            const l = GLOW[b] ? 3 : lit(x[0], x[1], x[2]);
+            key = 1 + (((tile * 4 + l) * 2 + (LIQUID[b] ? 1 : 0)) * 2 + 1);
           }
         }
         mask[nn++] = key;
@@ -159,8 +160,8 @@ export function meshChunk(
           const back = kk & 1;
           const water = (kk >> 1) & 1;
           const rest = kk >> 2;
-          const l = rest % 3;
-          const tile = (rest / 3) | 0;
+          const l = rest % 4;
+          const tile = (rest / 4) | 0;
           const face = d * 2 + (back ? 1 : 0);
           x[u] = i; x[v] = j;
           const p0 = [x[0], x[1], x[2]];
@@ -176,7 +177,7 @@ export function meshChunk(
             pos12[c * 3] = corners[c][0]; pos12[c * 3 + 1] = corners[c][1]; pos12[c * 3 + 2] = corners[c][2];
             faceUV(face, corners[c][0], corners[c][1], corners[c][2], uv8);
           }
-          const light = SHADE[face] * LEVEL[l];
+          const light = l === 3 ? 2 : SHADE[face] * LEVEL[l];
           (water ? wb : ob).quad(pos12, uv8, tile, light);
           for (let hh = 0; hh < ht; hh++) for (let ww = 0; ww < wd; ww++) mask[nn + ww + hh * du] = 0;
           i += wd; nn += wd;
@@ -204,7 +205,7 @@ export function meshChunk(
 function faceDrawn(a: number, b: number): boolean {
   if (OPAQUE[b]) return false;
   if (LIQUID[a]) return !LIQUID[b];
-  if (a === b && BLOCKS[a].cutout) return false;
+  if (a === b) return false;
   return true;
 }
 

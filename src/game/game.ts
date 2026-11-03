@@ -119,6 +119,7 @@ export class Game {
       this.audio.sfx('step', this.player.sprinting ? 0.9 : 0.6, surfaceOf(BLOCKS[Math.max(0, id)]));
     };
     this.player.onJump = () => this.audio.sfx('jump', 0.6);
+    this.player.onLava = () => this.hurt(3, 'lave');
   }
 
   keyLabels(): Record<string, string> {
@@ -292,10 +293,36 @@ export class Game {
   prof: Professor | null = null;
   settingsBossKills = 0;
 
+  /** Professeurs des villages, par clé de village. */
+  private villageProfs = new Map<string, Professor>();
+  private villageT = 0;
+
   protected afterLoad() {
     this.mobs.clear();
+    this.villageProfs.clear();
     this.prof = new Professor(HUB_X + 0.5, HUB_H + 1, HUB_Z - 1.5);
     this.mobs.add(this.prof);
+  }
+
+  /** Un Professeur Théorème tient boutique près du puits de chaque village proche. */
+  private updateVillages(dt: number) {
+    this.villageT -= dt;
+    if (this.villageT > 0) return;
+    this.villageT = 1.5;
+    const b = this.player.body;
+    for (const v of this.world.terrain.villagesNear(b.x, b.z, 150)) {
+      const key = `${v.x},${v.z}`;
+      if (this.villageProfs.has(key)) continue;
+      const px = v.x + 4, pz = v.z;
+      const y = this.world.surfaceY(px, pz);
+      if (y < 0) continue;
+      const pr = new Professor(px + 0.5, y + 1, pz + 0.5);
+      this.villageProfs.set(key, pr);
+      this.mobs.add(pr);
+    }
+    for (const [key, pr] of this.villageProfs) {
+      if (Math.hypot(pr.pos.x - b.x, pr.pos.z - b.z) > 220) { pr.dead = true; this.villageProfs.delete(key); }
+    }
   }
 
   openPause() {
@@ -525,6 +552,7 @@ export class Game {
       this.proj.update(dt, this.mobCtx, this.mobs);
       this.spawner.update(dt, this.mobCtx, this.sky);
       this.updateNpcPrompt(active);
+      this.updateVillages(dt);
       for (const fn of this.extras) fn(dt);
       this.fx.update(dt, p, this.inv, this.settings.creative);
       this.autosave(dt);
@@ -550,7 +578,8 @@ export class Game {
       this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 10);
       this.camera.updateProjectionMatrix();
     }
-    this.ui.waterOverlay.classList.toggle('hidden', !p.headInWater);
+    this.ui.waterOverlay.classList.toggle('hidden', !p.headInWater && !p.headInLava);
+    this.ui.waterOverlay.style.background = p.headInLava ? 'rgba(255,90,0,0.7)' : '';
     if (this.settings.showFps) {
       const st = this.world.stats();
       this.ui.info.classList.remove('hidden');
@@ -560,11 +589,12 @@ export class Game {
   }
 
   private updateNpcPrompt(active: boolean) {
-    const pr = this.prof;
     let near = false;
-    if (pr && active) {
+    if (active) {
       const b = this.player.body;
-      near = Math.hypot(b.x - pr.pos.x, b.z - pr.pos.z) < 3.6 && Math.abs(b.y - pr.pos.y) < 2.5;
+      for (const pr of [this.prof, ...this.villageProfs.values()]) {
+        if (pr && Math.hypot(b.x - pr.pos.x, b.z - pr.pos.z) < 3.6 && Math.abs(b.y - pr.pos.y) < 2.5) { near = true; break; }
+      }
     }
     this.hud.setHint(near ? `[${keyLabel(this.settings.keys.interact[0])}] Parler au Professeur Théorème` : null);
     if (near && this.input.wasPressed('interact')) { this.audio.sfx('bell', 0.4); this.openScreen('shop'); }

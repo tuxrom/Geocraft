@@ -193,7 +193,7 @@ export class Interaction {
     const x = h.x + h.nx, y = h.y + h.ny, z = h.z + h.nz;
     const cur = this.world.getBlock(x, y, z);
     const curDef = BLOCKS[Math.max(0, cur)];
-    if (cur < 0 || (cur !== 0 && !curDef.liquid)) return false;
+    if (cur < 0 || (cur !== 0 && !curDef.liquid && cur !== B.lava)) return false;
     const def = BLOCKS[base];
     let id = base;
     if (def.placeByFace) {

@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
   page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message));
   await page.goto('http://127.0.0.1:5173/');
   await page.waitForTimeout(3500);
-  await page.evaluate(() => localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, showFps: true })));
+  await page.evaluate(() => localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, platform: 'pc', showFps: true })));
   await page.reload();
   await page.waitForTimeout(3500);
   await page.click('text=Jouer');

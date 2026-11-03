@@ -174,7 +174,7 @@ export class Sky {
       const baseZ = Math.floor(cam.z / S) * S;
       let k = 0;
       for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
-        this.cloudMeshes[k++].position.set(baseX + i * S, 112, baseZ + j * S);
+        this.cloudMeshes[k++].position.set(baseX + i * S, 124, baseZ + j * S);
       }
       this.cloudMat.color.setScalar(lerp(0.22, 1, d));
     }

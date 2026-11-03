@@ -34,6 +34,10 @@ export interface BlockDef {
   /** Pas dans l'inventaire créatif / hors objets. */
   noItem?: boolean;
   special?: 'altar';
+  /** Bloc lumineux (lave) : éclairé même de nuit. */
+  glow?: boolean;
+  /** Inflige des dégâts au contact. */
+  hurts?: number;
 }
 
 export const BLOCKS: BlockDef[] = [];
@@ -79,6 +83,8 @@ function def(name: string, label: string, tiles: string | string[], o: Opts = {}
     ...(o.placeByFace ? { placeByFace: true } : {}),
     ...(o.noItem ? { noItem: true } : {}),
     ...(o.special ? { special: o.special } : {}),
+    ...(o.glow ? { glow: true } : {}),
+    ...(o.hurts ? { hurts: o.hurts } : {}),
   };
   BLOCKS.push(d);
   B[name] = id;
@@ -166,17 +172,27 @@ def('dome', 'Demi-sphère', 'dome', {
   boxes: [[0.05, 0, 0.05, 0.95, 0.22, 0.95], [0.2, 0.22, 0.2, 0.8, 0.5, 0.8]],
 });
 
+// --- Blocs ajoutés après la première version (toujours en fin de liste) ---
+def('lava', 'Lave', 'lava', { solid: false, opaque: false, hardness: 100, drop: null, noItem: true, glow: true, hurts: 3 });
+def('basalt', 'Basalte', ['basalt_top', 'basalt_top', 'basalt'], { hardness: 1.8, tool: 'pick', tier: 0 });
+def('obsidian', 'Obsidienne', 'obsidian', { hardness: 12, tool: 'pick', tier: 3 });
+def('jungle_log', 'Bois de jungle', ['jungle_log_top', 'jungle_log_top', 'jungle_log'], { hardness: 2, tool: 'axe', drop: 'b_log' });
+def('jungle_leaves', 'Feuilles de jungle', 'jungle_leaves', { hardness: 0.2, tool: 'axe', cutout: true, opaque: false, drop: null });
+def('mossy_bricks', 'Pierre taillée moussue', 'mossy_bricks', { hardness: 2, tool: 'pick', tier: 0 });
+
 // --- Tables de recherche rapide ---------------------------------------------
 export const NB = 256;
 export const OPAQUE = new Uint8Array(NB);
 export const SOLID = new Uint8Array(NB);
 export const LIQUID = new Uint8Array(NB);
 export const FULLCUBE = new Uint8Array(NB);
+export const GLOW = new Uint8Array(NB);
 for (const d of BLOCKS) {
   OPAQUE[d.id] = d.opaque ? 1 : 0;
   SOLID[d.id] = d.solid ? 1 : 0;
   LIQUID[d.id] = d.liquid ? 1 : 0;
   FULLCUBE[d.id] = d.render === 'cube' && d.solid ? 1 : 0;
+  GLOW[d.id] = d.glow ? 1 : 0;
 }
 
 export const blockOf = (id: number): BlockDef => BLOCKS[id] ?? BLOCKS[0];
@@ -186,11 +202,12 @@ export const TILE_NAMES: string[] = [
   'grass_top', 'grass_side', 'dirt', 'stone', 'sand', 'gravel', 'water', 'log_top', 'log_side', 'leaves',
   'planks', 'bedrock', 'copper_ore', 'iron_ore', 'gold_ore', 'diamond_ore', 'euclid_ore', 'stone_bricks',
   'glass', 'snow', 'altar_top', 'altar_side', 'roof', 'ladder', 'door', 'prism', 'pyramid', 'dome',
+  'lava', 'basalt', 'basalt_top', 'obsidian', 'jungle_log', 'jungle_log_top', 'jungle_leaves', 'mossy_bricks',
 ];
 export const TILE_INDEX: Record<string, number> = {};
 TILE_NAMES.forEach((n, i) => (TILE_INDEX[n] = i));
 export const ATLAS_COLS = 8;
-export const ATLAS_ROWS = 4;
+export const ATLAS_ROWS = 8;
 
 /** Tableau des indices de tuiles par bloc et par face. */
 export const FACE_TILE = new Uint8Array(NB * 6);

@@ -256,7 +256,7 @@ export class UI {
       sc.append(row);
     }
     title('Graphismes');
-    slider('Distance de rendu', 2, 14, 1, () => s.renderDistance, (v) => (s.renderDistance = v), (v) => `${v} chunks`);
+    slider('Distance de rendu', 2, 20, 1, () => s.renderDistance, (v) => (s.renderDistance = v), (v) => `${v} chunks`);
     slider('Champ de vision', 55, 110, 1, () => s.fov, (v) => (s.fov = v), (v) => `${v}°`);
     check('Nuages', () => s.clouds, (v) => (s.clouds = v));
     check('Afficher les images par seconde', () => s.showFps, (v) => (s.showFps = v));

@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
   page.on('console', (m) => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
   page.on('pageerror', (e) => errs.push('PAGEERROR: ' + e.message));
   await page.goto('http://127.0.0.1:5173/');
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true })); indexedDB.deleteDatabase('geocraft'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, platform: 'pc' })); indexedDB.deleteDatabase('geocraft'); });
   await page.reload();
   await page.waitForTimeout(3500);
   await page.click('text=Jouer');

@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
   page.on('console', (m) => { if (!m.text().includes('vite')) console.log(m.type() + ': ' + m.text()); });
   page.on('pageerror', (e) => console.log('PAGEERROR: ' + e.message));
   await page.goto('http://127.0.0.1:5173/');
-  await page.evaluate(() => localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true })));
+  await page.evaluate(() => localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, platform: 'pc' })));
   await page.reload();
   await page.waitForTimeout(3500);
   await page.click('text=Jouer');

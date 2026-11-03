@@ -49,8 +49,8 @@ void main() {
   vec2 auv = (vec2(floor(col), row) + f) / vec2(${ATLAS_COLS}.0, ${ATLAS_ROWS}.0);
   vec4 t = texture2D(map, auv);
   if (water < 0.5 && t.a < 0.5) discard;
-  float l = vLight * dayLight;
-  vec3 c = t.rgb * l * tint;
+  float l = vLight > 1.5 ? 1.15 : vLight * dayLight;
+  vec3 c = vLight > 1.5 ? t.rgb * l : t.rgb * l * tint;
   float fog = smoothstep(fogNear, fogFar, vDist);
   gl_FragColor = vec4(mix(c, fogColor, fog), water > 0.5 ? t.a : 1.0);
 }`;

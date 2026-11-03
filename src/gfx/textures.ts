@@ -186,6 +186,56 @@ const painters: Record<string, Painter> = {
     c.strokeStyle = 'rgb(30,110,130)'; c.lineWidth = 1;
     for (const r of [3, 6, 9]) { c.beginPath(); c.arc(8, 8, r, 0, Math.PI * 2); c.stroke(); }
   },
+  lava: (c) => {
+    const r = mulberry32(50);
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      const w = 0.5 + 0.5 * Math.sin(x * 0.9 + Math.sin(y * 0.7) * 2) * Math.cos(y * 0.6 - x * 0.3);
+      const k = 0.75 + w * 0.35 + r() * 0.08;
+      px(c, x, y, hex(255 * Math.min(1, k + 0.1), 120 * k + w * 90, 20 + w * 40));
+    }
+  },
+  basalt: (c) => {
+    noisy(c, [58, 56, 62], 51, 0.12);
+    c.fillStyle = shade([38, 36, 42], 1);
+    for (const x of [3, 8, 13]) c.fillRect(x, 0, 1, T);
+  },
+  basalt_top: (c) => {
+    noisy(c, [66, 63, 70], 52, 0.1);
+    c.strokeStyle = shade([40, 38, 44], 1); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(4, 1); c.lineTo(11, 1); c.lineTo(15, 8); c.lineTo(11, 15); c.lineTo(4, 15); c.lineTo(1, 8); c.closePath(); c.stroke();
+  },
+  obsidian: (c) => {
+    noisy(c, [22, 14, 36], 53, 0.25);
+    const r = mulberry32(54);
+    for (let i = 0; i < 10; i++) px(c, Math.floor(r() * T), Math.floor(r() * T), 'rgb(120,80,180)');
+  },
+  jungle_log: (c) => {
+    const r = mulberry32(55);
+    for (let x = 0; x < T; x++) {
+      const k = 0.8 + (x % 4 === 0 ? 0.15 : 0) + r() * 0.08;
+      for (let y = 0; y < T; y++) px(c, x, y, shade([92, 70, 38], k + (r() - 0.5) * 0.06 + (y % 5 === 0 ? -0.1 : 0)));
+    }
+  },
+  jungle_log_top: (c) => {
+    noisy(c, [176, 132, 74], 56, 0.06);
+    for (let r = 0; r < 8; r += 2) { c.strokeStyle = shade([122, 90, 48], 1); c.strokeRect(0.5 + r, 0.5 + r, T - 1 - 2 * r, T - 1 - 2 * r); }
+  },
+  jungle_leaves: (c) => {
+    const r = mulberry32(57);
+    c.clearRect(0, 0, T, T);
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      if (r() < 0.12) continue;
+      px(c, x, y, shade([62, 190, 36], 0.55 + r() * 0.6));
+    }
+  },
+  mossy_bricks: (c) => {
+    painters.stone_bricks(c);
+    const r = mulberry32(58);
+    for (let i = 0; i < 40; i++) {
+      const x = Math.floor(r() * T), y = Math.floor(r() * T);
+      if (r() < 0.7) px(c, x, y, shade([70, 120, 50], 0.8 + r() * 0.4));
+    }
+  },
 };
 export interface Atlas {
   canvas: HTMLCanvasElement;

@@ -6,7 +6,7 @@ import type { AudioSys } from './audio';
 import { moveBody, type Body } from './physics';
 import { entityTint } from '../gfx/lighting';
 import { SEA } from '../core/constants';
-import { SOLID, LIQUID } from '../data/blocks';
+import { SOLID, LIQUID, B } from '../data/blocks';
 
 export type Op = '+' | '-' | 'x' | '/' | '=' | '';
 
@@ -278,6 +278,12 @@ export class Fraction implements Mob {
     this.matSide.color.setRGB(lr * (1 + f * 0.8) * glow, lg * (1 - f * 0.6), lb * (1 - f * 0.6));
     this.matTop.color.setRGB(lr * (0.8 + f * 0.6), lg * (0.8 - f * 0.4), lb * (0.8 - f * 0.4));
     if (b.y < -20) this.dead = true;
+    // la lave consume les fractions
+    if (ctx.world.getBlock(Math.floor(b.x), Math.floor(b.y + 0.2), Math.floor(b.z)) === B.lava) {
+      this.hp -= dt * 6;
+      if (Math.random() < dt * 8) ctx.fx.burst(b.x, b.y + 0.5, b.z, [255, 140, 40], 2, 2, 0.4, 0.1, 1.5);
+      if (this.hp <= 0) this.hurt(1, { src: 'lave', noFloat: true }, ctx);
+    }
   }
 
   hurt(dmg: number, info: HitInfo, ctx: MobCtx): number {

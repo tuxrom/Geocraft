@@ -176,6 +176,14 @@ export class World {
     return false;
   }
 
+  /** Vrai si la boîte touche un bloc donné (lave...). */
+  inBlock(minx: number, miny: number, minz: number, maxx: number, maxy: number, maxz: number, id: number): boolean {
+    for (let y = Math.floor(miny); y <= Math.floor(maxy); y++) for (let z = Math.floor(minz); z <= Math.floor(maxz); z++) for (let x = Math.floor(minx); x <= Math.floor(maxx); x++) {
+      if (this.getBlock(x, y, z) === id) return true;
+    }
+    return false;
+  }
+
   /** Vrai si la boîte touche un bloc escaladable. */
   inClimb(minx: number, miny: number, minz: number, maxx: number, maxy: number, maxz: number): boolean {
     for (let y = Math.floor(miny); y <= Math.floor(maxy); y++) for (let z = Math.floor(minz); z <= Math.floor(maxz); z++) for (let x = Math.floor(minx); x <= Math.floor(maxx); x++) {

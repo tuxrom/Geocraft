@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
   const page = await browser.newPage({ viewport: { width: 1100, height: 620 } });
   page.on('pageerror', (e) => console.log('PAGEERROR: ' + e.message));
   await page.goto('http://127.0.0.1:5173/');
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true })); indexedDB.deleteDatabase('geocraft'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, platform: 'pc' })); indexedDB.deleteDatabase('geocraft'); });
   await page.reload();
   await page.waitForTimeout(6000);
   await page.screenshot({ path: 'docs/screenshots/titre.png' });
