@@ -19,6 +19,8 @@ import { weaponId, ITEMS } from '../data/items';
 import { Mobs, Spawner, type MobCtx } from './mobs';
 import { Projectiles } from './projectiles';
 import { Combat } from './combat';
+import { Professor } from './npc';
+import { HUB_X, HUB_Z, HUB_H } from '../world/gen';
 
 export type Mode = 'init' | 'title' | 'loading' | 'play' | 'pause' | 'dead';
 
@@ -248,7 +250,13 @@ export class Game {
     this.player.health = this.player.maxHealth;
   }
 
-  protected afterLoad() { /* surchargé */ }
+  prof: Professor | null = null;
+
+  protected afterLoad() {
+    this.mobs.clear();
+    this.prof = new Professor(HUB_X + 0.5, HUB_H + 1, HUB_Z - 1.5);
+    this.mobs.add(this.prof);
+  }
 
   openPause() {
     if (this.mode !== 'play') return;
@@ -466,6 +474,7 @@ export class Game {
       this.mobs.update(dt, this.mobCtx);
       this.proj.update(dt, this.mobCtx, this.mobs);
       this.spawner.update(dt, this.mobCtx, this.sky);
+      this.updateNpcPrompt(active);
       for (const fn of this.extras) fn(dt);
       this.fx.update(dt, p, this.inv, this.settings.creative);
       this.autosave(dt);
@@ -496,6 +505,17 @@ export class Game {
       this.ui.info.innerHTML = `${this.fps.toFixed(0)} i/s<br>XYZ ${p.body.x.toFixed(1)} ${p.body.y.toFixed(1)} ${p.body.z.toFixed(1)}<br>Chunks ${st.chunks} · ${Math.round(st.tris / 1000)}k triangles<br>Heure ${String(Math.floor((this.sky.time * 24 + 6) % 24)).padStart(2, '0')}h`;
     } else this.ui.info.classList.add('hidden');
     this.hud.setWeaponInfo(weaponHtml(held, this.combat.info()));
+  }
+
+  private updateNpcPrompt(active: boolean) {
+    const pr = this.prof;
+    let near = false;
+    if (pr && active) {
+      const b = this.player.body;
+      near = Math.hypot(b.x - pr.pos.x, b.z - pr.pos.z) < 3.6 && Math.abs(b.y - pr.pos.y) < 2.5;
+    }
+    this.hud.setHint(near ? `[${keyLabel(this.settings.keys.interact[0])}] Parler au Professeur Théorème` : null);
+    if (near && this.input.wasPressed('interact')) { this.audio.sfx('bell', 0.4); this.openScreen('shop'); }
   }
 
   private autosave(dt: number) {

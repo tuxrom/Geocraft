@@ -45,6 +45,7 @@ export class Hud {
   private lastSel = -1;
   helpEl: HTMLElement | null = null;
   clickMsg: HTMLElement;
+  private hint: HTMLElement;
 
   constructor(private hud: HTMLElement, private inv: Inventory, private keyLabels: () => Record<string, string>) {
     const hot = h('div'); hot.id = 'hotbar';
@@ -76,7 +77,10 @@ export class Hud {
     this.clickMsg = h('div', '', 'Cliquez pour reprendre la partie');
     this.clickMsg.style.cssText = 'position:absolute;left:0;right:0;top:60%;text-align:center;font-size:12px;text-shadow:2px 2px 0 #000;pointer-events:none';
     this.clickMsg.classList.add('hidden');
-    hud.append(hot, bars, res, this.nameEl, this.weaponEl, this.bossEl, this.clickMsg);
+    this.hint = h('div');
+    this.hint.style.cssText = 'position:absolute;left:0;right:0;top:56%;text-align:center;font-size:11px;text-shadow:2px 2px 0 #000;color:#ffe27a';
+    this.hint.classList.add('hidden');
+    hud.append(hot, bars, res, this.nameEl, this.weaponEl, this.bossEl, this.clickMsg, this.hint);
     this.refresh();
   }
 
@@ -118,6 +122,12 @@ export class Hud {
       img.onload = () => im.getContext('2d')!.drawImage(img, 0, 0);
       this.hearts.append(im);
     }
+  }
+
+  setHint(t: string | null) {
+    if (!t) { this.hint.classList.add('hidden'); return; }
+    this.hint.textContent = t;
+    this.hint.classList.remove('hidden');
   }
 
   setWeaponInfo(html: string) { this.weaponEl.innerHTML = html; }
