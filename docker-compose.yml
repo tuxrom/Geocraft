@@ -1,0 +1,30 @@
+# Geocraft : lancement par `docker compose up -d --build` après un simple `git clone`.
+# Tous les réglages se trouvent dans le fichier .env (voir .env.example).
+services:
+  geocraft:
+    build:
+      context: .
+    image: geocraft:latest
+    container_name: geocraft
+    restart: unless-stopped
+    environment:
+      # Port d'écoute INTERNE du conteneur (nginx). À indiquer aussi dans le reverse proxy.
+      PORT: "${PORT:-8080}"
+      TZ: "${TZ:-Europe/Paris}"
+    ports:
+      # Port publié sur l'hôte. Par défaut : uniquement en local (127.0.0.1), non exposé à Internet.
+      # Mettre BIND_ADDRESS=0.0.0.0 si le reverse proxy tourne dans un autre conteneur et vise l'IP de l'hôte.
+      - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8080}:${PORT:-8080}"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+      - /etc/nginx/conf.d
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

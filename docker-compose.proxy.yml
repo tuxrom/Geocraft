@@ -1,0 +1,16 @@
+# Surcharge optionnelle : rattache Geocraft au réseau Docker de votre reverse proxy
+# (Nginx Proxy Manager, Caddy, Traefik...). Le proxy joint alors le conteneur par son nom :
+#   http://geocraft:<PORT>
+#
+# Activation : dans .env, ajouter
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.proxy.yml
+#   PROXY_NETWORK=nom_du_reseau_du_proxy      (voir `docker network ls`)
+services:
+  geocraft:
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-proxy}
+    external: true

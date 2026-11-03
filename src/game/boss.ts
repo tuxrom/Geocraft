@@ -227,8 +227,8 @@ export class EquationBoss implements Mob {
     this.hp = this.maxHp = total;
     this.panelMats = new THREE.SpriteMaterial({ map: panelTexture(PHASES[0], 1), transparent: true, depthTest: false });
     this.panel = new THREE.Sprite(this.panelMats);
-    this.panel.scale.set(13, 3.25, 1);
-    this.panel.position.y = 1.9;
+    this.panel.scale.set(15, 3.75, 1);
+    this.panel.position.y = 2.1;
     this.panel.renderOrder = 35;
     this.obj.add(this.panel);
     this.axis = new THREE.Mesh(
@@ -283,7 +283,7 @@ export class EquationBoss implements Mob {
     // se place face au joueur, à distance
     const dx = pc.x - this.pos.x, dz = pc.z - this.pos.z;
     const hd = Math.hypot(dx, dz) || 1;
-    const want = 13;
+    const want = 11;
     const tx = pc.x - (dx / hd) * want, tz = pc.z - (dz / hd) * want;
     const ty = pc.y + 5.5 + Math.sin(this.age * 0.8) * 0.6;
     const k = Math.min(1, dt * 0.9);

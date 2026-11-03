@@ -1,0 +1,25 @@
+# Surcharge optionnelle pour Traefik (v2 ou v3), avec HTTPS automatique (Let's Encrypt).
+# Prérequis : Traefik tourne déjà, avec un point d'entrée HTTPS (websecure) et un résolveur
+# de certificats (ex. letsencrypt) ; adaptez TRAEFIK_ENTRYPOINT / TRAEFIK_CERTRESOLVER dans .env.
+#
+# Activation : dans .env, ajouter
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.traefik.yml
+#   DOMAIN=exemple.fr
+#   PROXY_NETWORK=traefik
+services:
+  geocraft:
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${PROXY_NETWORK:-traefik}"
+      - "traefik.http.routers.geocraft.rule=Host(`geocraft.${DOMAIN:?définir DOMAIN dans .env}`)"
+      - "traefik.http.routers.geocraft.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.geocraft.tls=true"
+      - "traefik.http.routers.geocraft.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.geocraft.loadbalancer.server.port=${PORT:-8080}"
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-traefik}
+    external: true
