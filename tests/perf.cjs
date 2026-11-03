@@ -1,0 +1,30 @@
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  page.on('pageerror', (e) => console.log('PAGEERROR: ' + e.message));
+  await page.goto('http://127.0.0.1:5173/');
+  await page.evaluate(() => localStorage.setItem('geocraft.settings.v1', JSON.stringify({ helpSeen: true, renderDistance: Number(new URLSearchParams(location.search).get('rd') || 6) })));
+  await page.reload();
+  await page.waitForTimeout(3500);
+  await page.click('text=Jouer');
+  await page.waitForTimeout(5000);
+  const r = await page.evaluate(async () => {
+    const g = __geo;
+    g.sky.frozen = true; g.sky.time = 0.75;
+    g.settings.creative = true; g.applySettings();
+    const M = await import('/src/game/mobs.ts');
+    for (let i = 0; i < 10; i++) g.mobs.add(new M.Fraction(2 + i, 5, false, 'propre', 4 + i, 47, -4, undefined));
+    g.mobs.add(new M.VectorMob(4, 52, -2, 1));
+    let tUpd = 0, tRen = 0, n = 0;
+    const upd = g.updateGame.bind(g), ren = g.renderer.render.bind(g.renderer);
+    g.updateGame = (dt) => { const a = performance.now(); upd(dt); tUpd += performance.now() - a; };
+    g.renderer.render = (s, c) => { const a = performance.now(); ren(s, c); tRen += performance.now() - a; n++; };
+    g.player.flying = true;
+    await new Promise((res) => setTimeout(res, 6000));
+    const info = g.renderer.info;
+    return { frames: n, msUpdateJS: (tUpd / n).toFixed(2), msRenderJS: (tRen / n).toFixed(2), drawCalls: info.render.calls, triangles: info.render.triangles, chunks: g.world.stats() };
+  });
+  console.log(JSON.stringify(r));
+  await browser.close();
+})();

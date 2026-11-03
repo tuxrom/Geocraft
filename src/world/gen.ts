@@ -54,7 +54,7 @@ export class Terrain {
       h += m * (ridge * ridge * 52 + 8);
     }
     const basin = this.sBasin.fbm2(x / 100 + 500, z / 100, 2);
-    if (basin < -0.28) h -= (-0.28 - basin) * 70 * this.hubBlend(x, z);
+    if (basin < -0.28) h -= Math.min(15, (-0.28 - basin) * 70) * this.hubBlend(x, z);
     const t = this.hubBlend(x, z);
     h = lerp(HUB_H, h, t);
     return Math.max(4, Math.min(122, Math.round(h)));
